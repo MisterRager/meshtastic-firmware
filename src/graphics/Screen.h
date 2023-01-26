@@ -27,6 +27,7 @@ class Screen
 
 #else
 #include <cstring>
+#include <memory>
 
 #include <OLEDDisplayUi.h>
 
@@ -116,12 +117,10 @@ class Screen : public concurrency::OSThread
         CallbackObserver<Screen, const UIFrameEvent *>(this, &Screen::handleUIFrameEvent);
 
   public:
-    explicit Screen(uint8_t address, int sda = -1, int scl = -1);
+    explicit Screen(std::unique_ptr<OLEDDisplay>);
 
     Screen(const Screen &) = delete;
     Screen &operator=(const Screen &) = delete;
-
-    uint8_t address_found;
 
     /// Initializes the UI, turns on the display, starts showing boot screen.
     //
@@ -173,7 +172,7 @@ class Screen : public concurrency::OSThread
     /// Returns a handle to the DebugInfo screen.
     //
     // Use this handle to set things like battery status, user count, GPS status, etc.
-    DebugInfo & debug_info();
+    DebugInfo * debug_info();
 
     int handleStatusUpdate(const meshtastic::Status *arg);
     int handleTextMessage(const meshtastic_MeshPacket *arg);
@@ -241,19 +240,8 @@ class Screen : public concurrency::OSThread
 
     /// Display device
 
-#if defined(USE_SH1106) || defined(USE_SH1107)
-    SH1106Wire dispdev;
-#elif defined(USE_SSD1306)
-    SSD1306Wire dispdev;
-#elif defined(ST7735_CS) || defined(ILI9341_DRIVER)
-    TFTDisplay dispdev;
-#elif defined(USE_EINK)
-    EInkDisplay dispdev;
-#elif defined(USE_ST7567)
-    ST7567Wire dispdev;
-#else
-    AutoOLEDWire dispdev;
-#endif
+    std::unique_ptr<OLEDDisplay> dispdev;
+
     /// UI helper for rendering to frames and switching between them
     OLEDDisplayUi ui;
 };

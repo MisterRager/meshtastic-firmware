@@ -894,30 +894,15 @@ static void drawNodeInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_
     drawColumns(display, x, y, fields);
 }
 
-// #ifdef RAK4630
-// Screen::Screen(uint8_t address, int sda, int scl) : OSThread("Screen"), cmdQueue(32), dispdev(address, sda, scl),
-// dispdev_oled(address, sda, scl), ui(&dispdev)
-// {
-//     address_found = address;
-//     cmdQueue.setReader(this);
-//     if (screen_found) {
-//         (void)dispdev;
-//         AutoOLEDWire dispdev = dispdev_oled;
-//         (void)ui;
-//         OLEDDisplayUi ui(&dispdev);
-//     }
-// }
-// #else
-Screen::Screen(uint8_t address, int sda, int scl)
-    : OSThread("Screen"), cmdQueue(32),
-      dispdev(address, sda, scl,
-              screen_model == meshtastic_Config_DisplayConfig_OledType_OLED_SH1107 ? GEOMETRY_128_128 : GEOMETRY_128_64),
-      ui(&dispdev)
+Screen::Screen(std::unique_ptr<OLEDDisplay> display)
+    : OSThread("Screen"),
+      cmdQueue(32),
+      dispdev(std::move(display)),
+      ui(dispdev.get())
 {
-    address_found = address;
     cmdQueue.setReader(this);
 }
-// #endif
+
 /**
  * Prepare the display for the unit going to the lowest power mode possible.  Most screens will just
  * poweroff, but eink screens will show a "I'm sleeping" graphic, possibly with a QR code
@@ -933,7 +918,7 @@ void Screen::doDeepSleep()
     setOn(false);
 }
 
-bool enqueueCmd(const ScreenCmd &cmd)
+bool Screen::enqueueCmd(const ScreenCmd &cmd)
 {
     if (!useDisplay)
         return true; // claim success if our display is not in use
@@ -952,14 +937,14 @@ void Screen::handleSetOn(bool on)
     if (on != screenOn) {
         if (on) {
             LOG_INFO("Turning on screen\n");
-            dispdev.displayOn();
-            dispdev.displayOn();
+            dispdev->displayOn();
+            dispdev->displayOn();
             enabled = true;
             setInterval(0); // Draw ASAP
             runASAP = true;
         } else {
             LOG_INFO("Turning off screen\n");
-            dispdev.displayOff();
+            dispdev->displayOff();
             enabled = false;
         }
         screenOn = on;
@@ -972,17 +957,11 @@ void Screen::setup()
     // is never found when probing i2c and therefore we don't call setup and never want to do (invalid) accesses to this device.
     useDisplay = true;
 
-#ifdef AutoOLEDWire_h
-    if (screen_model == meshtastic_Config_DisplayConfig_OledType_OLED_SH1107)
-        screen_model = meshtastic_Config_DisplayConfig_OledType_OLED_SH1106;
-    dispdev.setDetected(screen_model);
-#endif
-
     // Initialising the UI will init the display too.
     ui.init();
 
-    displayWidth = dispdev.width();
-    displayHeight = dispdev.height();
+    displayWidth = dispdev->width();
+    displayHeight = dispdev->height();
 
     ui.setTimePerTransition(0);
 
@@ -996,7 +975,7 @@ void Screen::setup()
     ui.getUiState()->userData = this;
 
     // Set the utf8 conversion function
-    dispdev.setFontTableLookupFunction(customFontTableLookup);
+    dispdev->setFontTableLookupFunction(customFontTableLookup);
 
     if (strlen(oemStore.oem_text) > 0)
         logo_timeout *= 2;
@@ -1012,15 +991,15 @@ void Screen::setup()
     ui.disableAutoTransition();
 
     // Set up a log buffer with 3 lines, 32 chars each.
-    dispdev.setLogBuffer(3, 32);
+    dispdev->setLogBuffer(3, 32);
 
 #ifdef SCREEN_MIRROR
-    dispdev.mirrorScreen();
+    dispdev->mirrorScreen();
 #else
     // Standard behaviour is to FLIP the screen (needed on T-Beam). If this config item is set, unflip it, and thereby logically
     // flip it. If you have a headache now, you're welcome.
     if (!config.display.flip_screen) {
-        dispdev.flipScreenVertically();
+        dispdev->flipScreenVertically();
     }
 #endif
 
@@ -1064,7 +1043,7 @@ void Screen::forceDisplay()
 {
     // Nasty hack to force epaper updates for 'key' frames.  FIXME, cleanup.
 #ifdef USE_EINK
-    dispdev.forceDisplay();
+    dispdev->forceDisplay();
 #endif
 }
 
@@ -1219,7 +1198,7 @@ void Screen::drawDebugInfoWiFiTrampoline(OLEDDisplay *display, OLEDDisplayUiStat
  * it is expected that this will be used during the boot phase */
 void Screen::setSSLFrames()
 {
-    if (address_found) {
+    if (dispdev.get()) {
         // LOG_DEBUG("showing SSL frames\n");
         static FrameCallback sslFrames[] = {drawSSLScreen};
         ui.setFrames(sslFrames, 1);
@@ -1231,7 +1210,7 @@ void Screen::setSSLFrames()
  * it is expected that this will be used during the boot phase */
 void Screen::setWelcomeFrames()
 {
-    if (address_found) {
+    if (dispdev.get()) {
         // LOG_DEBUG("showing Welcome frames\n");
         ui.disableAllIndicators();
 
@@ -1367,17 +1346,17 @@ void Screen::blink()
 {
     setFastFramerate();
     uint8_t count = 10;
-    dispdev.setBrightness(254);
+    dispdev->setBrightness(254);
     while (count > 0) {
-        dispdev.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-        dispdev.display();
+        dispdev->fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+        dispdev->display();
         delay(50);
-        dispdev.clear();
-        dispdev.display();
+        dispdev->clear();
+        dispdev->display();
         delay(50);
         count = count - 1;
     }
-    dispdev.setBrightness(brightness);
+    dispdev->setBrightness(brightness);
 }
 
 void Screen::onPress() {
@@ -1392,7 +1371,7 @@ void Screen::handlePrint(const char *text)
     if (!useDisplay || !showingNormalScreen)
         return;
 
-    dispdev.print(text);
+    dispdev->print(text);
 }
 
 void Screen::handleOnPress()
@@ -1809,10 +1788,10 @@ void Screen::adjustBrightness()
         brightness++;
     }
     int width = brightness / (254.00 / SCREEN_WIDTH);
-    dispdev.drawRect(0, 30, SCREEN_WIDTH, 4);
-    dispdev.fillRect(0, 31, width, 2);
-    dispdev.display();
-    dispdev.setBrightness(brightness);
+    dispdev->drawRect(0, 30, SCREEN_WIDTH, 4);
+    dispdev->fillRect(0, 31, width, 2);
+    dispdev->display();
+    dispdev->setBrightness(brightness);
 }
 
 void Screen::startBluetoothPinScreen(uint32_t pin)
@@ -1867,7 +1846,7 @@ void Screen::print(const char *text)
     }
 }
 
-static char Screen::customFontTableLookup(const uint8_t ch)
+char Screen::customFontTableLookup(const uint8_t ch)
 {
     // UTF-8 to font table index converter
     // Code form http://playground.arduino.cc/Main/Utf8ascii
@@ -1927,7 +1906,7 @@ static char Screen::customFontTableLookup(const uint8_t ch)
                          // stick to standard EASCII codes)
 }
 
-DebugInfo & Screen::debug_info()
+DebugInfo * Screen::debug_info()
 {
     return &debugInfo;
 }

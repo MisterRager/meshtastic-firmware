@@ -6,6 +6,7 @@
 #include "graphics/Screen.h"
 #include "mesh/generated/meshtastic/telemetry.pb.h"
 #include <map>
+#include <memory>
 #if !defined(ARCH_PORTDUINO) && !defined(ARCH_STM32WL)
 #include <SparkFun_ATECCX08a_Arduino_Library.h>
 #endif
