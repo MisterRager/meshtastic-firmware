@@ -1,26 +1,3 @@
-/*
-
-SSD1306 - Screen module
-
-Copyright (C) 2018 by Xose Pérez <xose dot perez at gmail dot com>
-
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-*/
-#include "configuration.h"
-#if HAS_SCREEN
 #include <OLEDDisplay.h>
 
 #include "GPS.h"
@@ -894,8 +871,23 @@ static void drawNodeInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_
     drawColumns(display, x, y, fields);
 }
 
+Screen::Screen(char _) { }
+void Screen::onPress() {}
+void Screen::setup() {}
+void Screen::setOn(bool _) {}
+void Screen::print(const char * _) {}
+void Screen::adjustBrightness() {}
+void Screen::doDeepSleep() {}
+void Screen::forceDisplay() {}
+void Screen::startBluetoothPinScreen(uint32_t pin) {}
+void Screen::stopBluetoothPinScreen() {}
+void Screen::startRebootScreen() {}
+void Screen::startFirmwareUpdateScreen() {}
+void Screen::blink() {}
+void Screen::setSSLFrames() {}
+
 // #ifdef RAK4630
-// Screen::Screen(uint8_t address, int sda, int scl) : OSThread("Screen"), cmdQueue(32), dispdev(address, sda, scl),
+// ActiveScreen::ActiveScreen(uint8_t address, int sda, int scl) : OSThread("Screen"), cmdQueue(32), dispdev(address, sda, scl),
 // dispdev_oled(address, sda, scl), ui(&dispdev)
 // {
 //     address_found = address;
@@ -911,8 +903,9 @@ static void drawNodeInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_
 
 // #endif
 
-Screen::Screen(std::unique_ptr<OLEDDisplay> display)
-    : OSThread("Screen"),
+ActiveScreen::ActiveScreen(std::unique_ptr<OLEDDisplay> display)
+    : Screen('s'),
+      OSThread("Screen"),
       cmdQueue(32),
       dispdev(std::move(display)),
       ui(dispdev.get())
@@ -924,7 +917,7 @@ Screen::Screen(std::unique_ptr<OLEDDisplay> display)
  * Prepare the display for the unit going to the lowest power mode possible.  Most screens will just
  * poweroff, but eink screens will show a "I'm sleeping" graphic, possibly with a QR code
  */
-void Screen::doDeepSleep()
+void ActiveScreen::doDeepSleep()
 {
 #ifdef USE_EINK
     static FrameCallback sleepFrames[] = {drawSleepScreen};
@@ -935,7 +928,7 @@ void Screen::doDeepSleep()
     setOn(false);
 }
 
-bool Screen::enqueueCmd(const ScreenCmd &cmd)
+bool ActiveScreen::enqueueCmd(const ScreenCmd &cmd)
 {
     if (!useDisplay)
         return true; // claim success if our display is not in use
@@ -946,7 +939,7 @@ bool Screen::enqueueCmd(const ScreenCmd &cmd)
     }
 }
 
-void Screen::handleSetOn(bool on)
+void ActiveScreen::handleSetOn(bool on)
 {
     if (!useDisplay)
         return;
@@ -968,7 +961,7 @@ void Screen::handleSetOn(bool on)
     }
 }
 
-void Screen::setup()
+void ActiveScreen::setup()
 {
     // We don't set useDisplay until setup() is called, because some boards have a declaration of this object but the device
     // is never found when probing i2c and therefore we don't call setup and never want to do (invalid) accesses to this device.
@@ -1047,7 +1040,7 @@ void Screen::setup()
     MeshModule::observeUIEvents(&uiFrameEventObserver);
 }
 
-void Screen::setOn(bool on)
+void ActiveScreen::setOn(bool on)
 {
     if (!on)
         handleSetOn(
@@ -1056,7 +1049,7 @@ void Screen::setOn(bool on)
         enqueueCmd(ScreenCmd{.cmd = on ? Cmd::SET_ON : Cmd::SET_OFF});
 }
 
-void Screen::forceDisplay()
+void ActiveScreen::forceDisplay()
 {
     // Nasty hack to force epaper updates for 'key' frames.  FIXME, cleanup.
 #ifdef USE_EINK
@@ -1066,7 +1059,7 @@ void Screen::forceDisplay()
 
 static uint32_t lastScreenTransition;
 
-int32_t Screen::runOnce()
+int32_t ActiveScreen::runOnce()
 {
     // If we don't have a screen, don't ever spend any CPU for us.
     if (!useDisplay) {
@@ -1193,27 +1186,27 @@ int32_t Screen::runOnce()
     return (1000 / targetFramerate);
 }
 
-void Screen::drawDebugInfoTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+void ActiveScreen::drawDebugInfoTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
-    Screen *screen2 = reinterpret_cast<Screen *>(state->userData);
+    ActiveScreen *screen2 = reinterpret_cast<ActiveScreen *>(state->userData);
     screen2->debugInfo.drawFrame(display, state, x, y);
 }
 
-void Screen::drawDebugInfoSettingsTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+void ActiveScreen::drawDebugInfoSettingsTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
-    Screen *screen2 = reinterpret_cast<Screen *>(state->userData);
+    ActiveScreen *screen2 = reinterpret_cast<ActiveScreen *>(state->userData);
     screen2->debugInfo.drawFrameSettings(display, state, x, y);
 }
 
-void Screen::drawDebugInfoWiFiTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+void ActiveScreen::drawDebugInfoWiFiTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
-    Screen *screen2 = reinterpret_cast<Screen *>(state->userData);
+    ActiveScreen *screen2 = reinterpret_cast<ActiveScreen *>(state->userData);
     screen2->debugInfo.drawFrameWiFi(display, state, x, y);
 }
 
 /* show a message that the SSL cert is being built
  * it is expected that this will be used during the boot phase */
-void Screen::setSSLFrames()
+void ActiveScreen::setSSLFrames()
 {
     if (dispdev.get()) {
         // LOG_DEBUG("showing SSL frames\n");
@@ -1225,7 +1218,7 @@ void Screen::setSSLFrames()
 
 /* show a message that the SSL cert is being built
  * it is expected that this will be used during the boot phase */
-void Screen::setWelcomeFrames()
+void ActiveScreen::setWelcomeFrames()
 {
     if (dispdev.get()) {
         // LOG_DEBUG("showing Welcome frames\n");
@@ -1238,7 +1231,7 @@ void Screen::setWelcomeFrames()
 }
 
 // restore our regular frame list
-void Screen::setFrames()
+void ActiveScreen::setFrames()
 {
     LOG_DEBUG("showing standard frames\n");
     showingNormalScreen = true;
@@ -1286,15 +1279,15 @@ void Screen::setFrames()
     //
     // Since frames are basic function pointers, we have to use a helper to
     // call a method on debugInfo object.
-    normalFrames[numframes++] = &Screen::drawDebugInfoTrampoline;
+    normalFrames[numframes++] = &ActiveScreen::drawDebugInfoTrampoline;
 
     // call a method on debugInfoScreen object (for more details)
-    normalFrames[numframes++] = &Screen::drawDebugInfoSettingsTrampoline;
+    normalFrames[numframes++] = &ActiveScreen::drawDebugInfoSettingsTrampoline;
 
 #ifdef ARCH_ESP32
     if (isWifiAvailable()) {
         // call a method on debugInfoScreen object (for more details)
-        normalFrames[numframes++] = &Screen::drawDebugInfoWiFiTrampoline;
+        normalFrames[numframes++] = &ActiveScreen::drawDebugInfoWiFiTrampoline;
     }
 #endif
 
@@ -1309,7 +1302,7 @@ void Screen::setFrames()
     setFastFramerate(); // Draw ASAP
 }
 
-void Screen::handleStartBluetoothPinScreen(uint32_t pin)
+void ActiveScreen::handleStartBluetoothPinScreen(uint32_t pin)
 {
     LOG_DEBUG("showing bluetooth screen\n");
     showingNormalScreen = false;
@@ -1323,7 +1316,7 @@ void Screen::handleStartBluetoothPinScreen(uint32_t pin)
     setFastFramerate();
 }
 
-void Screen::handleShutdownScreen()
+void ActiveScreen::handleShutdownScreen()
 {
     LOG_DEBUG("showing shutdown screen\n");
     showingNormalScreen = false;
@@ -1335,7 +1328,7 @@ void Screen::handleShutdownScreen()
     setFastFramerate();
 }
 
-void Screen::handleRebootScreen()
+void ActiveScreen::handleRebootScreen()
 {
     LOG_DEBUG("showing reboot screen\n");
     showingNormalScreen = false;
@@ -1347,7 +1340,7 @@ void Screen::handleRebootScreen()
     setFastFramerate();
 }
 
-void Screen::handleStartFirmwareUpdateScreen()
+void ActiveScreen::handleStartFirmwareUpdateScreen()
 {
     LOG_DEBUG("showing firmware screen\n");
     showingNormalScreen = false;
@@ -1359,7 +1352,7 @@ void Screen::handleStartFirmwareUpdateScreen()
     setFastFramerate();
 }
 
-void Screen::blink()
+void ActiveScreen::blink()
 {
     setFastFramerate();
     uint8_t count = 10;
@@ -1376,12 +1369,12 @@ void Screen::blink()
     dispdev->setBrightness(brightness);
 }
 
-void Screen::onPress()
+void ActiveScreen::onPress()
 {
     enqueueCmd(ScreenCmd{.cmd = Cmd::ON_PRESS});
 }
 
-void Screen::handlePrint(const char *text)
+void ActiveScreen::handlePrint(const char *text)
 {
     // the string passed into us probably has a newline, but that would confuse the logging system
     // so strip it
@@ -1392,7 +1385,7 @@ void Screen::handlePrint(const char *text)
     dispdev->print(text);
 }
 
-void Screen::handleOnPress()
+void ActiveScreen::handleOnPress()
 {
     // If screen was off, just wake it, otherwise advance to next frame
     // If we are in a transition, the press must have bounced, drop it.
@@ -1407,7 +1400,7 @@ void Screen::handleOnPress()
 #define SCREEN_TRANSITION_FRAMERATE 30 // fps
 #endif
 
-void Screen::setFastFramerate()
+void ActiveScreen::setFastFramerate()
 {
     // We are about to start a transition so speed up fps
     targetFramerate = SCREEN_TRANSITION_FRAMERATE;
@@ -1795,7 +1788,7 @@ void DebugInfo::drawFrameSettings(OLEDDisplay *display, OLEDDisplayUiState *stat
 #endif
 }
 // adjust Brightness cycle trough 1 to 254 as long as attachDuringLongPress is true
-void Screen::adjustBrightness()
+void ActiveScreen::adjustBrightness()
 {
     if (!useDisplay)
         return;
@@ -1812,7 +1805,7 @@ void Screen::adjustBrightness()
     dispdev->setBrightness(brightness);
 }
 
-void Screen::startBluetoothPinScreen(uint32_t pin)
+void ActiveScreen::startBluetoothPinScreen(uint32_t pin)
 {
     ScreenCmd cmd;
     cmd.cmd = Cmd::START_BLUETOOTH_PIN_SCREEN;
@@ -1820,38 +1813,38 @@ void Screen::startBluetoothPinScreen(uint32_t pin)
     enqueueCmd(cmd);
 }
 
-void Screen::startFirmwareUpdateScreen()
+void ActiveScreen::startFirmwareUpdateScreen()
 {
     ScreenCmd cmd;
     cmd.cmd = Cmd::START_FIRMWARE_UPDATE_SCREEN;
     enqueueCmd(cmd);
 }
 
-void Screen::startShutdownScreen()
+void ActiveScreen::startShutdownScreen()
 {
     ScreenCmd cmd;
     cmd.cmd = Cmd::START_SHUTDOWN_SCREEN;
     enqueueCmd(cmd);
 }
 
-void Screen::startRebootScreen()
+void ActiveScreen::startRebootScreen()
 {
     ScreenCmd cmd;
     cmd.cmd = Cmd::START_REBOOT_SCREEN;
     enqueueCmd(cmd);
 }
 
-void Screen::stopBluetoothPinScreen()
+void ActiveScreen::stopBluetoothPinScreen()
 {
     enqueueCmd(ScreenCmd{.cmd = Cmd::STOP_BLUETOOTH_PIN_SCREEN});
 }
 
-void Screen::stopBootScreen()
+void ActiveScreen::stopBootScreen()
 {
     enqueueCmd(ScreenCmd{.cmd = Cmd::STOP_BOOT_SCREEN});
 }
 
-void Screen::print(const char *text)
+void ActiveScreen::print(const char *text)
 {
     ScreenCmd cmd;
     cmd.cmd = Cmd::PRINT;
@@ -1864,7 +1857,7 @@ void Screen::print(const char *text)
     }
 }
 
-char Screen::customFontTableLookup(const uint8_t ch)
+char ActiveScreen::customFontTableLookup(const uint8_t ch)
 {
     // UTF-8 to font table index converter
     // Code form http://playground.arduino.cc/Main/Utf8ascii
@@ -1924,12 +1917,12 @@ char Screen::customFontTableLookup(const uint8_t ch)
                          // stick to standard EASCII codes)
 }
 
-DebugInfo * Screen::debug_info()
+DebugInfo * ActiveScreen::debug_info()
 {
     return &debugInfo;
 }
 
-int Screen::handleStatusUpdate(const meshtastic::Status *arg)
+int ActiveScreen::handleStatusUpdate(const meshtastic::Status *arg)
 {
     // LOG_DEBUG("Screen got status update %d\n", arg->getStatusType());
     switch (arg->getStatusType()) {
@@ -1944,7 +1937,7 @@ int Screen::handleStatusUpdate(const meshtastic::Status *arg)
     return 0;
 }
 
-int Screen::handleTextMessage(const meshtastic_MeshPacket *packet)
+int ActiveScreen::handleTextMessage(const meshtastic_MeshPacket *packet)
 {
     if (showingNormalScreen) {
         setFrames(); // Regen the list of screens (will show new text message)
@@ -1953,7 +1946,7 @@ int Screen::handleTextMessage(const meshtastic_MeshPacket *packet)
     return 0;
 }
 
-int Screen::handleUIFrameEvent(const UIFrameEvent *event)
+int ActiveScreen::handleUIFrameEvent(const UIFrameEvent *event)
 {
     if (showingNormalScreen) {
         if (event->frameChanged) {
@@ -1970,18 +1963,3 @@ int Screen::handleUIFrameEvent(const UIFrameEvent *event)
 }
 
 } // namespace graphics
-
-#else // HAS_SCREEN
-Screen::Screen(char _) { }
-void Screen::onPress() {}
-void Screen::setup() {}
-void Screen::setOn(bool _) {}
-void Screen::print(const char * _) {}
-void Screen::adjustBrightness() {}
-void Screen::doDeepSleep() {}
-void Screen::forceDisplay() {}
-void Screen::startBluetoothPinScreen(uint32_t pin) {}
-void Screen::stopBluetoothPinScreen() {}
-void Screen::startRebootScreen() {}
-void Screen::startFirmwareUpdateScreen() {}
-#endif // HAS_SCREEN

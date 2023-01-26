@@ -1,31 +1,6 @@
-#pragma once
+#ifndef MESHTASTIC_GRAPHICS_SCREEN
+#define MESHTASTIC_GRAPHICS_SCREEN
 
-#include "configuration.h"
-
-#if !HAS_SCREEN
-#include "power.h"
-namespace graphics
-{
-// Noop class for boards without screen.
-class Screen
-{
-  public:
-    explicit Screen(char);
-    void onPress();
-    void setup();
-    void setOn(bool);
-    void print(const char *);
-    void adjustBrightness();
-    void doDeepSleep();
-    void forceDisplay();
-    void startBluetoothPinScreen(uint32_t pin);
-    void stopBluetoothPinScreen();
-    void startRebootScreen();
-    void startFirmwareUpdateScreen();
-};
-} // namespace graphics
-
-#else
 #include <cstring>
 #include <memory>
 
@@ -73,7 +48,26 @@ namespace graphics
 {
 
 // Forward declarations
-class Screen;
+class ActiveScreen;
+
+class Screen
+{
+    public:
+        Screen(char);
+        virtual void onPress();
+        virtual void setup();
+        virtual void setOn(bool);
+        virtual void print(const char *);
+        virtual void adjustBrightness();
+        virtual void doDeepSleep();
+        virtual void forceDisplay();
+        virtual void startBluetoothPinScreen(uint32_t pin);
+        virtual void stopBluetoothPinScreen();
+        virtual void startRebootScreen();
+        virtual void startFirmwareUpdateScreen();
+        virtual void blink();
+        virtual void setSSLFrames();
+};
 
 /// Handles gathering and displaying debug information.
 class DebugInfo
@@ -83,7 +77,7 @@ class DebugInfo
     DebugInfo &operator=(const DebugInfo &) = delete;
 
   private:
-    friend Screen;
+    friend ActiveScreen;
 
     DebugInfo() {}
 
@@ -103,68 +97,68 @@ class DebugInfo
  *          multiple times simultaneously. All state-changing calls are queued and executed
  *          when the main loop calls us.
  */
-class Screen : public concurrency::OSThread
+class ActiveScreen : public Screen, public concurrency::OSThread
 {
-    CallbackObserver<Screen, const meshtastic::Status *> powerStatusObserver =
-        CallbackObserver<Screen, const meshtastic::Status *>(this, &Screen::handleStatusUpdate);
-    CallbackObserver<Screen, const meshtastic::Status *> gpsStatusObserver =
-        CallbackObserver<Screen, const meshtastic::Status *>(this, &Screen::handleStatusUpdate);
-    CallbackObserver<Screen, const meshtastic::Status *> nodeStatusObserver =
-        CallbackObserver<Screen, const meshtastic::Status *>(this, &Screen::handleStatusUpdate);
-    CallbackObserver<Screen, const meshtastic_MeshPacket *> textMessageObserver =
-        CallbackObserver<Screen, const meshtastic_MeshPacket *>(this, &Screen::handleTextMessage);
-    CallbackObserver<Screen, const UIFrameEvent *> uiFrameEventObserver =
-        CallbackObserver<Screen, const UIFrameEvent *>(this, &Screen::handleUIFrameEvent);
+    CallbackObserver<ActiveScreen, const meshtastic::Status *> powerStatusObserver =
+        CallbackObserver<ActiveScreen, const meshtastic::Status *>(this, &ActiveScreen::handleStatusUpdate);
+    CallbackObserver<ActiveScreen, const meshtastic::Status *> gpsStatusObserver =
+        CallbackObserver<ActiveScreen, const meshtastic::Status *>(this, &ActiveScreen::handleStatusUpdate);
+    CallbackObserver<ActiveScreen, const meshtastic::Status *> nodeStatusObserver =
+        CallbackObserver<ActiveScreen, const meshtastic::Status *>(this, &ActiveScreen::handleStatusUpdate);
+    CallbackObserver<ActiveScreen, const meshtastic_MeshPacket *> textMessageObserver =
+        CallbackObserver<ActiveScreen, const meshtastic_MeshPacket *>(this, &ActiveScreen::handleTextMessage);
+    CallbackObserver<ActiveScreen, const UIFrameEvent *> uiFrameEventObserver =
+        CallbackObserver<ActiveScreen, const UIFrameEvent *>(this, &ActiveScreen::handleUIFrameEvent);
 
   public:
-    explicit Screen(std::unique_ptr<OLEDDisplay>);
+    explicit ActiveScreen(std::unique_ptr<OLEDDisplay>);
 
-    Screen(const Screen &) = delete;
-    Screen &operator=(const Screen &) = delete;
+    ActiveScreen(const ActiveScreen &) = delete;
+    ActiveScreen &operator=(const ActiveScreen &) = delete;
 
     /// Initializes the UI, turns on the display, starts showing boot screen.
     //
     // Not thread safe - must be called before any other methods are called.
-    void setup();
+    void setup() override;
 
     /// Turns the screen on/off.
-    void setOn(bool on);
+    void setOn(bool on) override;
 
     /**
      * Prepare the display for the unit going to the lowest power mode possible.  Most screens will just
      * poweroff, but eink screens will show a "I'm sleeping" graphic, possibly with a QR code
      */
-    void doDeepSleep();
+    void doDeepSleep() override;
 
-    void blink();
+    void blink() override;
 
     /// Handles a button press.
-    void onPress();
+    void onPress() override;
 
     // Implementation to Adjust Brightness
-    void adjustBrightness();
+    void adjustBrightness() override;
     uint8_t brightness = BRIGHTNESS_DEFAULT;
 
     /// Starts showing the Bluetooth PIN screen.
     //
     // Switches over to a static frame showing the Bluetooth pairing screen
     // with the PIN.
-    void startBluetoothPinScreen(uint32_t pin);
+    void startBluetoothPinScreen(uint32_t pin) override;
 
-    void startFirmwareUpdateScreen();
+    void startFirmwareUpdateScreen() override;
 
     void startShutdownScreen();
 
-    void startRebootScreen();
+    void startRebootScreen() override;
 
     /// Stops showing the bluetooth PIN screen.
-    void stopBluetoothPinScreen();
+    void stopBluetoothPinScreen() override;
 
     /// Stops showing the boot screen.
     void stopBootScreen();
 
     /// Writes a string to the screen.
-    void print(const char *text);
+    void print(const char *text) override;
 
     /// Overrides the default utf8 character conversion, to replace empty space with question marks
     static char customFontTableLookup(const uint8_t ch);
@@ -182,7 +176,7 @@ class Screen : public concurrency::OSThread
     void forceDisplay();
 
     /// Draws our SSL cert screen during boot (called from WebServer)
-    void setSSLFrames();
+    void setSSLFrames() override;
 
     void setWelcomeFrames();
 
@@ -247,4 +241,6 @@ class Screen : public concurrency::OSThread
 };
 
 } // namespace graphics
-#endif
+
+// MESHTASTIC_GRAPHICS_SCREEN
+#endif 
