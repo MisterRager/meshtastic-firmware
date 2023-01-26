@@ -894,6 +894,23 @@ static void drawNodeInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_
     drawColumns(display, x, y, fields);
 }
 
+// #ifdef RAK4630
+// Screen::Screen(uint8_t address, int sda, int scl) : OSThread("Screen"), cmdQueue(32), dispdev(address, sda, scl),
+// dispdev_oled(address, sda, scl), ui(&dispdev)
+// {
+//     address_found = address;
+//     cmdQueue.setReader(this);
+//     if (screen_found) {
+//         (void)dispdev;
+//         AutoOLEDWire dispdev = dispdev_oled;
+//         (void)ui;
+//         OLEDDisplayUi ui(&dispdev);
+//     }
+// }
+// #else
+
+// #endif
+
 Screen::Screen(std::unique_ptr<OLEDDisplay> display)
     : OSThread("Screen"),
       cmdQueue(32),
@@ -1359,7 +1376,8 @@ void Screen::blink()
     dispdev->setBrightness(brightness);
 }
 
-void Screen::onPress() {
+void Screen::onPress()
+{
     enqueueCmd(ScreenCmd{.cmd = Cmd::ON_PRESS});
 }
 
