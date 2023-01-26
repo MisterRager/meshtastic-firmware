@@ -91,7 +91,7 @@ uint8_t oled_probe(byte addr)
     return o_probe;
 }
 
-void scanI2Cdevice()
+void scanI2Cdevice(uint8_t & screen_found, uint8_t & screen_model)
 {
     byte err, addr;
     uint16_t registerValue = 0x00;

@@ -261,7 +261,8 @@ void setup()
 #endif
 
     // We need to scan here to decide if we have a screen for nodeDB.init()
-    scanI2Cdevice();
+    scanI2Cdevice(screen_found, screen_model);
+    nodeDB.screen_found = screen_found;
 
 #ifdef HAS_SDCARD
     setupSDCard();
@@ -320,16 +321,17 @@ void setup()
 #endif
 
     // Initialize the screen first so we can show the logo while we start up everything else.
+    auto geometry = screen_model == meshtastic_Config_DisplayConfig_OledType_OLED_SH1107 ? GEOMETRY_128_128 : GEOMETRY_128_64;
 #if defined(USE_SH1106) || defined(USE_SH1107)
-    screen = new graphics::Screen(std::unique_ptr<SH1106Wire>(new SH1106Wire(screen_found)));
+    screen = new graphics::Screen(std::unique_ptr<SH1106Wire>(new SH1106Wire(screen_found, -1, -1, geometry)));
 #elif defined(USE_SSD1306)
-    screen = new graphics::Screen(std::unique_ptr<SSD1306Wire>(new SSD1306Wire(screen_found)));
+    screen = new graphics::Screen(std::unique_ptr<SSD1306Wire>(new SSD1306Wire(screen_found, -1, -1, geometry)));
 #elif defined(ST7735_CS) || defined(ILI9341_DRIVER)
-    screen = new graphics::Screen(std::unique_ptr<TFTDisplay>(new TFTDisplay(screen_found)));
+    screen = new graphics::Screen(std::unique_ptr<TFTDisplay>(new TFTDisplay(screen_found, -1, -1, geometry)));
 #elif defined(USE_EINK)
-    screen = new graphics::Screen(std::unique_ptr<EInkDisplay>(new EInkDisplay(screen_found)));
+    screen = new graphics::Screen(std::unique_ptr<EInkDisplay>(new EInkDisplay(screen_found, -1, -1, geometry)));
 #elif defined(USE_ST7567)
-    screen = new graphics::Screen(std::unique_ptr<ST7567Wire>(new ST7567Wire(screen_found)));
+    screen = new graphics::Screen(std::unique_ptr<ST7567Wire>(new ST7567Wire(screen_found, -1, -1, geometry)));
 #else
     if (screen_model == meshtastic_Config_DisplayConfig_OledType_OLED_SH1107)
         screen_model = meshtastic_Config_DisplayConfig_OledType_OLED_SH1106;
