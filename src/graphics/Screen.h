@@ -10,18 +10,18 @@ namespace graphics
 class Screen
 {
   public:
-    explicit Screen(char) {}
-    void onPress() {}
-    void setup() {}
-    void setOn(bool) {}
-    void print(const char *) {}
-    void adjustBrightness() {}
-    void doDeepSleep() {}
-    void forceDisplay() {}
-    void startBluetoothPinScreen(uint32_t pin) {}
-    void stopBluetoothPinScreen() {}
-    void startRebootScreen() {}
-    void startFirmwareUpdateScreen() {}
+    explicit Screen(char);
+    void onPress();
+    void setup();
+    void setOn(bool);
+    void print(const char *);
+    void adjustBrightness();
+    void doDeepSleep();
+    void forceDisplay();
+    void startBluetoothPinScreen(uint32_t pin);
+    void stopBluetoothPinScreen();
+    void startRebootScreen();
+    void startFirmwareUpdateScreen();
 };
 } // namespace graphics
 
@@ -129,14 +129,7 @@ class Screen : public concurrency::OSThread
     void setup();
 
     /// Turns the screen on/off.
-    void setOn(bool on)
-    {
-        if (!on)
-            handleSetOn(
-                false); // We handle off commands immediately, because they might be called because the CPU is shutting down
-        else
-            enqueueCmd(ScreenCmd{.cmd = on ? Cmd::SET_ON : Cmd::SET_OFF});
-    }
+    void setOn(bool on);
 
     /**
      * Prepare the display for the unit going to the lowest power mode possible.  Most screens will just
@@ -147,7 +140,7 @@ class Screen : public concurrency::OSThread
     void blink();
 
     /// Handles a button press.
-    void onPress() { enqueueCmd(ScreenCmd{.cmd = Cmd::ON_PRESS}); }
+    void onPress();
 
     // Implementation to Adjust Brightness
     void adjustBrightness();
@@ -157,120 +150,30 @@ class Screen : public concurrency::OSThread
     //
     // Switches over to a static frame showing the Bluetooth pairing screen
     // with the PIN.
-    void startBluetoothPinScreen(uint32_t pin)
-    {
-        ScreenCmd cmd;
-        cmd.cmd = Cmd::START_BLUETOOTH_PIN_SCREEN;
-        cmd.bluetooth_pin = pin;
-        enqueueCmd(cmd);
-    }
+    void startBluetoothPinScreen(uint32_t pin);
 
-    void startFirmwareUpdateScreen()
-    {
-        ScreenCmd cmd;
-        cmd.cmd = Cmd::START_FIRMWARE_UPDATE_SCREEN;
-        enqueueCmd(cmd);
-    }
+    void startFirmwareUpdateScreen();
 
-    void startShutdownScreen()
-    {
-        ScreenCmd cmd;
-        cmd.cmd = Cmd::START_SHUTDOWN_SCREEN;
-        enqueueCmd(cmd);
-    }
+    void startShutdownScreen();
 
-    void startRebootScreen()
-    {
-        ScreenCmd cmd;
-        cmd.cmd = Cmd::START_REBOOT_SCREEN;
-        enqueueCmd(cmd);
-    }
+    void startRebootScreen();
 
     /// Stops showing the bluetooth PIN screen.
-    void stopBluetoothPinScreen() { enqueueCmd(ScreenCmd{.cmd = Cmd::STOP_BLUETOOTH_PIN_SCREEN}); }
+    void stopBluetoothPinScreen();
 
     /// Stops showing the boot screen.
-    void stopBootScreen() { enqueueCmd(ScreenCmd{.cmd = Cmd::STOP_BOOT_SCREEN}); }
+    void stopBootScreen();
 
     /// Writes a string to the screen.
-    void print(const char *text)
-    {
-        ScreenCmd cmd;
-        cmd.cmd = Cmd::PRINT;
-        // TODO(girts): strdup() here is scary, but we can't use std::string as
-        // FreeRTOS queue is just dumbly copying memory contents. It would be
-        // nice if we had a queue that could copy objects by value.
-        cmd.print_text = strdup(text);
-        if (!enqueueCmd(cmd)) {
-            free(cmd.print_text);
-        }
-    }
+    void print(const char *text);
 
     /// Overrides the default utf8 character conversion, to replace empty space with question marks
-    static char customFontTableLookup(const uint8_t ch)
-    {
-        // UTF-8 to font table index converter
-        // Code form http://playground.arduino.cc/Main/Utf8ascii
-        static uint8_t LASTCHAR;
-        static bool SKIPREST; // Only display a single unconvertable-character symbol per sequence of unconvertable characters
-
-        if (ch < 128) { // Standard ASCII-set 0..0x7F handling
-            LASTCHAR = 0;
-            SKIPREST = false;
-            return ch;
-        }
-
-        uint8_t last = LASTCHAR; // get last char
-        LASTCHAR = ch;
-
-        switch (last) { // conversion depending on first UTF8-character
-        case 0xC2: {
-            SKIPREST = false;
-            return (uint8_t)ch;
-        }
-        case 0xC3: {
-            SKIPREST = false;
-            return (uint8_t)(ch | 0xC0);
-        }
-        // map UTF-8 cyrillic chars to it Windows-1251 (CP-1251) ASCII codes
-        // note: in this case we must use compatible font - provided ArialMT_Plain_10/16/24 by 'ThingPulse/esp8266-oled-ssd1306'
-        // library have empty chars for non-latin ASCII symbols
-        case 0xD0: {
-            SKIPREST = false;
-            if (ch == 129)
-                return (uint8_t)(168); // Ё
-            if (ch > 143 && ch < 192)
-                return (uint8_t)(ch + 48);
-            break;
-        }
-        case 0xD1: {
-            SKIPREST = false;
-            if (ch == 145)
-                return (uint8_t)(184); // ё
-            if (ch > 127 && ch < 144)
-                return (uint8_t)(ch + 112);
-            break;
-        }
-        }
-
-        // We want to strip out prefix chars for two-byte char formats
-        if (ch == 0xC2 || ch == 0xC3 || ch == 0x82 || ch == 0xD0 || ch == 0xD1)
-            return (uint8_t)0;
-
-        // If we already returned an unconvertable-character symbol for this unconvertable-character sequence, return NULs for the
-        // rest of it
-        if (SKIPREST)
-            return (uint8_t)0;
-        SKIPREST = true;
-
-        return (uint8_t)191; // otherwise: return ¿ if character can't be converted (note that the font map we're using doesn't
-                             // stick to standard EASCII codes)
-    }
+    static char customFontTableLookup(const uint8_t ch);
 
     /// Returns a handle to the DebugInfo screen.
     //
     // Use this handle to set things like battery status, user count, GPS status, etc.
-    DebugInfo *debug_info() { return &debugInfo; }
+    DebugInfo & debug_info();
 
     int handleStatusUpdate(const meshtastic::Status *arg);
     int handleTextMessage(const meshtastic_MeshPacket *arg);
@@ -300,16 +203,7 @@ class Screen : public concurrency::OSThread
     };
 
     /// Enques given command item to be processed by main loop().
-    bool enqueueCmd(const ScreenCmd &cmd)
-    {
-        if (!useDisplay)
-            return true; // claim success if our display is not in use
-        else {
-            bool success = cmdQueue.enqueue(cmd, 0);
-            enabled = true; // handle ASAP (we are the registered reader for cmdQueue, but might have been disabled)
-            return success;
-        }
-    }
+    bool enqueueCmd(const ScreenCmd &cmd);
 
     // Implementations of various commands, called from doTask().
     void handleSetOn(bool on);

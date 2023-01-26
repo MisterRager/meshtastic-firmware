@@ -933,6 +933,17 @@ void Screen::doDeepSleep()
     setOn(false);
 }
 
+bool enqueueCmd(const ScreenCmd &cmd)
+{
+    if (!useDisplay)
+        return true; // claim success if our display is not in use
+    else {
+        bool success = cmdQueue.enqueue(cmd, 0);
+        enabled = true; // handle ASAP (we are the registered reader for cmdQueue, but might have been disabled)
+        return success;
+    }
+}
+
 void Screen::handleSetOn(bool on)
 {
     if (!useDisplay)
@@ -1038,6 +1049,15 @@ void Screen::setup()
 
     // Modules can notify screen about refresh
     MeshModule::observeUIEvents(&uiFrameEventObserver);
+}
+
+void Screen::setOn(bool on)
+{
+    if (!on)
+        handleSetOn(
+            false); // We handle off commands immediately, because they might be called because the CPU is shutting down
+    else
+        enqueueCmd(ScreenCmd{.cmd = on ? Cmd::SET_ON : Cmd::SET_OFF});
 }
 
 void Screen::forceDisplay()
@@ -1358,6 +1378,10 @@ void Screen::blink()
         count = count - 1;
     }
     dispdev.setBrightness(brightness);
+}
+
+void Screen::onPress() {
+    enqueueCmd(ScreenCmd{.cmd = Cmd::ON_PRESS});
 }
 
 void Screen::handlePrint(const char *text)
@@ -1791,6 +1815,123 @@ void Screen::adjustBrightness()
     dispdev.setBrightness(brightness);
 }
 
+void Screen::startBluetoothPinScreen(uint32_t pin)
+{
+    ScreenCmd cmd;
+    cmd.cmd = Cmd::START_BLUETOOTH_PIN_SCREEN;
+    cmd.bluetooth_pin = pin;
+    enqueueCmd(cmd);
+}
+
+void Screen::startFirmwareUpdateScreen()
+{
+    ScreenCmd cmd;
+    cmd.cmd = Cmd::START_FIRMWARE_UPDATE_SCREEN;
+    enqueueCmd(cmd);
+}
+
+void Screen::startShutdownScreen()
+{
+    ScreenCmd cmd;
+    cmd.cmd = Cmd::START_SHUTDOWN_SCREEN;
+    enqueueCmd(cmd);
+}
+
+void Screen::startRebootScreen()
+{
+    ScreenCmd cmd;
+    cmd.cmd = Cmd::START_REBOOT_SCREEN;
+    enqueueCmd(cmd);
+}
+
+void Screen::stopBluetoothPinScreen()
+{
+    enqueueCmd(ScreenCmd{.cmd = Cmd::STOP_BLUETOOTH_PIN_SCREEN});
+}
+
+void Screen::stopBootScreen()
+{
+    enqueueCmd(ScreenCmd{.cmd = Cmd::STOP_BOOT_SCREEN});
+}
+
+void Screen::print(const char *text)
+{
+    ScreenCmd cmd;
+    cmd.cmd = Cmd::PRINT;
+    // TODO(girts): strdup() here is scary, but we can't use std::string as
+    // FreeRTOS queue is just dumbly copying memory contents. It would be
+    // nice if we had a queue that could copy objects by value.
+    cmd.print_text = strdup(text);
+    if (!enqueueCmd(cmd)) {
+        free(cmd.print_text);
+    }
+}
+
+static char Screen::customFontTableLookup(const uint8_t ch)
+{
+    // UTF-8 to font table index converter
+    // Code form http://playground.arduino.cc/Main/Utf8ascii
+    static uint8_t LASTCHAR;
+    static bool SKIPREST; // Only display a single unconvertable-character symbol per sequence of unconvertable characters
+
+    if (ch < 128) { // Standard ASCII-set 0..0x7F handling
+        LASTCHAR = 0;
+        SKIPREST = false;
+        return ch;
+    }
+
+    uint8_t last = LASTCHAR; // get last char
+    LASTCHAR = ch;
+
+    switch (last) { // conversion depending on first UTF8-character
+    case 0xC2: {
+        SKIPREST = false;
+        return (uint8_t)ch;
+    }
+    case 0xC3: {
+        SKIPREST = false;
+        return (uint8_t)(ch | 0xC0);
+    }
+    // map UTF-8 cyrillic chars to it Windows-1251 (CP-1251) ASCII codes
+    // note: in this case we must use compatible font - provided ArialMT_Plain_10/16/24 by 'ThingPulse/esp8266-oled-ssd1306'
+    // library have empty chars for non-latin ASCII symbols
+    case 0xD0: {
+        SKIPREST = false;
+        if (ch == 129)
+            return (uint8_t)(168); // Ё
+        if (ch > 143 && ch < 192)
+            return (uint8_t)(ch + 48);
+        break;
+    }
+    case 0xD1: {
+        SKIPREST = false;
+        if (ch == 145)
+            return (uint8_t)(184); // ё
+        if (ch > 127 && ch < 144)
+            return (uint8_t)(ch + 112);
+        break;
+    }
+    }
+
+    // We want to strip out prefix chars for two-byte char formats
+    if (ch == 0xC2 || ch == 0xC3 || ch == 0x82 || ch == 0xD0 || ch == 0xD1)
+        return (uint8_t)0;
+
+    // If we already returned an unconvertable-character symbol for this unconvertable-character sequence, return NULs for the
+    // rest of it
+    if (SKIPREST)
+        return (uint8_t)0;
+    SKIPREST = true;
+
+    return (uint8_t)191; // otherwise: return ¿ if character can't be converted (note that the font map we're using doesn't
+                         // stick to standard EASCII codes)
+}
+
+DebugInfo & Screen::debug_info()
+{
+    return &debugInfo;
+}
+
 int Screen::handleStatusUpdate(const meshtastic::Status *arg)
 {
     // LOG_DEBUG("Screen got status update %d\n", arg->getStatusType());
@@ -1833,4 +1974,17 @@ int Screen::handleUIFrameEvent(const UIFrameEvent *event)
 
 } // namespace graphics
 
+#else // HAS_SCREEN
+Screen::Screen(char _) { }
+void Screen::onPress() {}
+void Screen::setup() {}
+void Screen::setOn(bool _) {}
+void Screen::print(const char * _) {}
+void Screen::adjustBrightness() {}
+void Screen::doDeepSleep() {}
+void Screen::forceDisplay() {}
+void Screen::startBluetoothPinScreen(uint32_t pin) {}
+void Screen::stopBluetoothPinScreen() {}
+void Screen::startRebootScreen() {}
+void Screen::startFirmwareUpdateScreen() {}
 #endif // HAS_SCREEN
