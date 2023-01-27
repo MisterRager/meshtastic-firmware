@@ -2,7 +2,7 @@
 #define MESHTASTIC_GRAPHICS_SCREEN
 
 #include "OLEDDisplayUi.h"
-#include "MeshModule.h"
+#include "mesh/MeshModule.h"
 
 // 0 to 255, though particular variants might define different defaults
 #ifndef BRIGHTNESS_DEFAULT
@@ -48,20 +48,20 @@ namespace graphics
 
 // DEBUG
 #define NUM_EXTRA_FRAMES 3 // text message and debug frame
-// if defined a pixel will blink to show redraws
-// #define SHOW_REDRAWS
+    // if defined a pixel will blink to show redraws
+    // #define SHOW_REDRAWS
 
-// At some point, we're going to ask all of the modules if they would like to display a screen frame
-// we'll need to hold onto pointers for the modules that can draw a frame.
-extern std::vector<MeshModule *> moduleFrames;
+    // At some point, we're going to ask all of the modules if they would like to display a screen frame
+    // we'll need to hold onto pointers for the modules that can draw a frame.
+    extern std::vector<MeshModule *> moduleFrames;
 
-/*
-Base class Screen
+    /*
+    Base class Screen
 
-This was the no-screen "Screen" class definition. The methods are all no-ops, including the constructor.
-*/
-class Screen
-{
+    This was the no-screen "Screen" class definition. The methods are all no-ops, including the constructor.
+    */
+    class Screen
+    {
     public:
         Screen(char);
         virtual void onPress();
@@ -74,12 +74,13 @@ class Screen
         virtual void startBluetoothPinScreen(uint32_t pin);
         virtual void stopBluetoothPinScreen();
         virtual void startRebootScreen();
+        virtual void startShutdownScreen();
         virtual void startFirmwareUpdateScreen();
         virtual void blink();
         virtual void setSSLFrames();
-};
+    };
 
 } // namespace graphics
 
 // MESHTASTIC_GRAPHICS_SCREEN
-#endif 
+#endif

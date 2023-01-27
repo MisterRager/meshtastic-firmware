@@ -36,6 +36,10 @@
 #include "mesh/MeshModule.h"
 #include "power.h"
 
+#ifdef OLED_RU
+#include "fonts/OLEDDisplayFontsRU.h"
+#endif
+
 namespace graphics {
 
 /**
@@ -45,24 +49,24 @@ namespace graphics {
  *          multiple times simultaneously. All state-changing calls are queued and executed
  *          when the main loop calls us.
  */
-class ActiveScreen : public graphics::Screen, public concurrency::OSThread
+class OLEDDisplayScreen : public graphics::Screen, public concurrency::OSThread
 {
-    CallbackObserver<ActiveScreen, const meshtastic::Status *> powerStatusObserver =
-        CallbackObserver<ActiveScreen, const meshtastic::Status *>(this, &ActiveScreen::handleStatusUpdate);
-    CallbackObserver<ActiveScreen, const meshtastic::Status *> gpsStatusObserver =
-        CallbackObserver<ActiveScreen, const meshtastic::Status *>(this, &ActiveScreen::handleStatusUpdate);
-    CallbackObserver<ActiveScreen, const meshtastic::Status *> nodeStatusObserver =
-        CallbackObserver<ActiveScreen, const meshtastic::Status *>(this, &ActiveScreen::handleStatusUpdate);
-    CallbackObserver<ActiveScreen, const meshtastic_MeshPacket *> textMessageObserver =
-        CallbackObserver<ActiveScreen, const meshtastic_MeshPacket *>(this, &ActiveScreen::handleTextMessage);
-    CallbackObserver<ActiveScreen, const UIFrameEvent *> uiFrameEventObserver =
-        CallbackObserver<ActiveScreen, const UIFrameEvent *>(this, &ActiveScreen::handleUIFrameEvent);
+    CallbackObserver<OLEDDisplayScreen, const meshtastic::Status *> powerStatusObserver =
+        CallbackObserver<OLEDDisplayScreen, const meshtastic::Status *>(this, &OLEDDisplayScreen::handleStatusUpdate);
+    CallbackObserver<OLEDDisplayScreen, const meshtastic::Status *> gpsStatusObserver =
+        CallbackObserver<OLEDDisplayScreen, const meshtastic::Status *>(this, &OLEDDisplayScreen::handleStatusUpdate);
+    CallbackObserver<OLEDDisplayScreen, const meshtastic::Status *> nodeStatusObserver =
+        CallbackObserver<OLEDDisplayScreen, const meshtastic::Status *>(this, &OLEDDisplayScreen::handleStatusUpdate);
+    CallbackObserver<OLEDDisplayScreen, const meshtastic_MeshPacket *> textMessageObserver =
+        CallbackObserver<OLEDDisplayScreen, const meshtastic_MeshPacket *>(this, &OLEDDisplayScreen::handleTextMessage);
+    CallbackObserver<OLEDDisplayScreen, const UIFrameEvent *> uiFrameEventObserver =
+        CallbackObserver<OLEDDisplayScreen, const UIFrameEvent *>(this, &OLEDDisplayScreen::handleUIFrameEvent);
 
   public:
-    explicit ActiveScreen(std::unique_ptr<OLEDDisplay>);
+    explicit OLEDDisplayScreen(std::unique_ptr<OLEDDisplay>);
 
-    ActiveScreen(const ActiveScreen &) = delete;
-    ActiveScreen &operator=(const ActiveScreen &) = delete;
+    OLEDDisplayScreen(const OLEDDisplayScreen &) = delete;
+    OLEDDisplayScreen &operator=(const OLEDDisplayScreen &) = delete;
 
     /// Initializes the UI, turns on the display, starts showing boot screen.
     //
@@ -95,7 +99,7 @@ class ActiveScreen : public graphics::Screen, public concurrency::OSThread
 
     void startFirmwareUpdateScreen() override;
 
-    void startShutdownScreen();
+    void startShutdownScreen() override;
 
     void startRebootScreen() override;
 
@@ -206,7 +210,7 @@ class ActiveScreen : public graphics::Screen, public concurrency::OSThread
 
     friend void drawIconScreen(const char *, OLEDDisplay *, OLEDDisplayUiState *, int16_t, int16_t);
     friend void drawOEMIconScreen(const char *, OLEDDisplay *, OLEDDisplayUiState *, int16_t, int16_t);
-    friend void drawColumns(ActiveScreen *, int16_t, int16_t, const char **);
+    friend void drawColumns(OLEDDisplayScreen *, int16_t, int16_t, const char **);
     friend void drawNodeInfo(OLEDDisplay *, OLEDDisplayUiState *, int16_t, int16_t);
     friend void drawFrameBluetooth(OLEDDisplay *, OLEDDisplayUiState *, int16_t, int16_t);
     friend class DebugInfo;

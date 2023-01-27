@@ -19,7 +19,7 @@
 #include "detect/einkScan.h"
 #include "detect/i2cScan.h"
 #include "graphics/Screen.h"
-#include "graphics/ActiveScreen.h"
+#include "graphics/OLEDDisplayScreen.h"
 #include "AutoOLEDWire.h"
 #include "main.h"
 #include "modules/Modules.h"
@@ -347,7 +347,7 @@ void setup()
     display->setDetected(screen_model);
 #endif
 
-    screen = std::unique_ptr<graphics::ActiveScreen>(new graphics::ActiveScreen(std::move(display)));
+    screen = std::unique_ptr<graphics::OLEDDisplayScreen>(new graphics::OLEDDisplayScreen(std::move(display)));
 
 #endif
 

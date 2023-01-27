@@ -1,4 +1,4 @@
-#include "ActiveScreen.h"
+#include "OLEDDisplayScreen.h"
 #include "OLEDDisplay.h"
 #include "OLEDDisplayUi.h"
 #include "images.h"
@@ -14,11 +14,13 @@
 #include "MeshRadio.h"
 
 #include "target_specific.h"
+#include "modules/ExternalNotificationModule.h"
+#include "EInkDisplay2.h"
+
 #ifdef ARCH_ESP32
 #include "esp_task_wdt.h"
 #include "mesh/http/WiFiAPClient.h"
 #include "modules/esp32/StoreForwardModule.h"
-#include "modules/ExternalNotificationModule.h"
 #endif
 
 namespace graphics {
@@ -34,7 +36,7 @@ void drawIconScreen(const char *upperMsg, OLEDDisplay *display, OLEDDisplayUiSta
     // draw an xbm image.
     // Please note that everything that should be transitioned
     // needs to be drawn relative to x and y
-    ActiveScreen * screen = reinterpret_cast<ActiveScreen *>(state->userData);
+    OLEDDisplayScreen * screen = reinterpret_cast<OLEDDisplayScreen *>(state->userData);
 
     // draw centered icon left to right and centered above the one line of app text
     display->drawXbm(x + (screen->displayWidth - icon_width) / 2, y + (screen->displayHeight - FONT_HEIGHT_MEDIUM - icon_height) / 2 + 2,
@@ -72,7 +74,7 @@ void drawOEMIconScreen(const char *upperMsg, OLEDDisplay *display, OLEDDisplayUi
     // draw an xbm image.
     // Please note that everything that should be transitioned
     // needs to be drawn relative to x and y
-    ActiveScreen * screen = reinterpret_cast<ActiveScreen *>(state->userData);
+    OLEDDisplayScreen * screen = reinterpret_cast<OLEDDisplayScreen *>(state->userData);
 
     // draw centered icon left to right and centered above the one line of app text
     display->drawXbm(x + (screen->displayWidth - oemStore.oem_icon_width) / 2,
@@ -195,7 +197,7 @@ static void drawModuleFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int
 
 void drawFrameBluetooth(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
-    ActiveScreen * screen = reinterpret_cast<ActiveScreen *>(state->userData);
+    OLEDDisplayScreen * screen = reinterpret_cast<OLEDDisplayScreen *>(state->userData);
 
     int x_offset = display->width() / 2;
     int y_offset = display->height() == 64 ? 0 : 32;
@@ -302,7 +304,7 @@ static void drawTextMessageFrame(OLEDDisplay *display, OLEDDisplayUiState *state
 }
 
 /// Draw a series of fields in a column, wrapping to multiple colums if needed
-void drawColumns(ActiveScreen * screen, int16_t x, int16_t y, const char **fields)
+void drawColumns(OLEDDisplayScreen * screen, int16_t x, int16_t y, const char **fields)
 {
     // The coordinates define the left starting point of the text
     screen->dispdev->setTextAlignment(TEXT_ALIGN_LEFT);
@@ -511,7 +513,7 @@ static void drawCompassNorth(OLEDDisplay *display, int16_t compassX, int16_t com
 
 void drawNodeInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
-    ActiveScreen * screen = reinterpret_cast<ActiveScreen *>(state->userData);
+    OLEDDisplayScreen * screen = reinterpret_cast<OLEDDisplayScreen *>(state->userData);
 
     // We only advance our nodeIndex if the frame # has changed - because
     // drawNodeInfo will be called repeatedly while the frame is shown
@@ -646,7 +648,7 @@ void drawNodeInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, in
 
 // #endif
 
-ActiveScreen::ActiveScreen(std::unique_ptr<OLEDDisplay> display)
+OLEDDisplayScreen::OLEDDisplayScreen(std::unique_ptr<OLEDDisplay> display)
     : Screen('s'),
       OSThread("Screen"),
       cmdQueue(32),
@@ -660,7 +662,7 @@ ActiveScreen::ActiveScreen(std::unique_ptr<OLEDDisplay> display)
  * Prepare the display for the unit going to the lowest power mode possible.  Most screens will just
  * poweroff, but eink screens will show a "I'm sleeping" graphic, possibly with a QR code
  */
-void ActiveScreen::doDeepSleep()
+void OLEDDisplayScreen::doDeepSleep()
 {
 #ifdef USE_EINK
     static FrameCallback sleepFrames[] = {drawSleepScreen};
@@ -671,7 +673,7 @@ void ActiveScreen::doDeepSleep()
     setOn(false);
 }
 
-bool ActiveScreen::enqueueCmd(const ScreenCmd &cmd)
+bool OLEDDisplayScreen::enqueueCmd(const ScreenCmd &cmd)
 {
     if (!useDisplay)
         return true; // claim success if our display is not in use
@@ -682,7 +684,7 @@ bool ActiveScreen::enqueueCmd(const ScreenCmd &cmd)
     }
 }
 
-void ActiveScreen::handleSetOn(bool on)
+void OLEDDisplayScreen::handleSetOn(bool on)
 {
     if (!useDisplay)
         return;
@@ -704,7 +706,7 @@ void ActiveScreen::handleSetOn(bool on)
     }
 }
 
-void ActiveScreen::setup()
+void OLEDDisplayScreen::setup()
 {
     // We don't set useDisplay until setup() is called, because some boards have a declaration of this object but the device
     // is never found when probing i2c and therefore we don't call setup and never want to do (invalid) accesses to this device.
@@ -783,7 +785,7 @@ void ActiveScreen::setup()
     MeshModule::observeUIEvents(&uiFrameEventObserver);
 }
 
-void ActiveScreen::setOn(bool on)
+void OLEDDisplayScreen::setOn(bool on)
 {
     if (!on)
         handleSetOn(
@@ -792,17 +794,17 @@ void ActiveScreen::setOn(bool on)
         enqueueCmd(ScreenCmd{.cmd = on ? Cmd::SET_ON : Cmd::SET_OFF});
 }
 
-void ActiveScreen::forceDisplay()
+void OLEDDisplayScreen::forceDisplay()
 {
     // Nasty hack to force epaper updates for 'key' frames.  FIXME, cleanup.
 #ifdef USE_EINK
-    dispdev->forceDisplay();
+    reinterpret_cast<EInkDisplay *>(dispdev.get())->forceDisplay();
 #endif
 }
 
 static uint32_t lastScreenTransition;
 
-int32_t ActiveScreen::runOnce()
+int32_t OLEDDisplayScreen::runOnce()
 {
     // If we don't have a screen, don't ever spend any CPU for us.
     if (!useDisplay) {
@@ -929,27 +931,27 @@ int32_t ActiveScreen::runOnce()
     return (1000 / targetFramerate);
 }
 
-void ActiveScreen::drawDebugInfoTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+void OLEDDisplayScreen::drawDebugInfoTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
-    ActiveScreen *screen2 = reinterpret_cast<ActiveScreen *>(state->userData);
+    OLEDDisplayScreen *screen2 = reinterpret_cast<OLEDDisplayScreen *>(state->userData);
     screen2->debugInfo.drawFrame(display, state, x, y);
 }
 
-void ActiveScreen::drawDebugInfoSettingsTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+void OLEDDisplayScreen::drawDebugInfoSettingsTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
-    ActiveScreen *screen2 = reinterpret_cast<ActiveScreen *>(state->userData);
+    OLEDDisplayScreen *screen2 = reinterpret_cast<OLEDDisplayScreen *>(state->userData);
     screen2->debugInfo.drawFrameSettings(display, state, x, y);
 }
 
-void ActiveScreen::drawDebugInfoWiFiTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+void OLEDDisplayScreen::drawDebugInfoWiFiTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
-    ActiveScreen *screen2 = reinterpret_cast<ActiveScreen *>(state->userData);
+    OLEDDisplayScreen *screen2 = reinterpret_cast<OLEDDisplayScreen *>(state->userData);
     screen2->debugInfo.drawFrameWiFi(display, state, x, y);
 }
 
 /* show a message that the SSL cert is being built
  * it is expected that this will be used during the boot phase */
-void ActiveScreen::setSSLFrames()
+void OLEDDisplayScreen::setSSLFrames()
 {
     if (dispdev.get()) {
         // LOG_DEBUG("showing SSL frames\n");
@@ -961,7 +963,7 @@ void ActiveScreen::setSSLFrames()
 
 /* show a message that the SSL cert is being built
  * it is expected that this will be used during the boot phase */
-void ActiveScreen::setWelcomeFrames()
+void OLEDDisplayScreen::setWelcomeFrames()
 {
     if (dispdev.get()) {
         // LOG_DEBUG("showing Welcome frames\n");
@@ -973,7 +975,7 @@ void ActiveScreen::setWelcomeFrames()
 }
 
 // restore our regular frame list
-void ActiveScreen::setFrames()
+void OLEDDisplayScreen::setFrames()
 {
     LOG_DEBUG("showing standard frames\n");
     showingNormalScreen = true;
@@ -1021,15 +1023,15 @@ void ActiveScreen::setFrames()
     //
     // Since frames are basic function pointers, we have to use a helper to
     // call a method on debugInfo object.
-    normalFrames[numframes++] = &ActiveScreen::drawDebugInfoTrampoline;
+    normalFrames[numframes++] = &OLEDDisplayScreen::drawDebugInfoTrampoline;
 
     // call a method on debugInfoScreen object (for more details)
-    normalFrames[numframes++] = &ActiveScreen::drawDebugInfoSettingsTrampoline;
+    normalFrames[numframes++] = &OLEDDisplayScreen::drawDebugInfoSettingsTrampoline;
 
 #ifdef ARCH_ESP32
     if (isWifiAvailable()) {
         // call a method on debugInfoScreen object (for more details)
-        normalFrames[numframes++] = &ActiveScreen::drawDebugInfoWiFiTrampoline;
+        normalFrames[numframes++] = &OLEDDisplayScreen::drawDebugInfoWiFiTrampoline;
     }
 #endif
 
@@ -1044,7 +1046,7 @@ void ActiveScreen::setFrames()
     setFastFramerate(); // Draw ASAP
 }
 
-void ActiveScreen::handleStartBluetoothPinScreen(uint32_t pin)
+void OLEDDisplayScreen::handleStartBluetoothPinScreen(uint32_t pin)
 {
     LOG_DEBUG("showing bluetooth screen\n");
     showingNormalScreen = false;
@@ -1058,7 +1060,7 @@ void ActiveScreen::handleStartBluetoothPinScreen(uint32_t pin)
     setFastFramerate();
 }
 
-void ActiveScreen::handleShutdownScreen()
+void OLEDDisplayScreen::handleShutdownScreen()
 {
     LOG_DEBUG("showing shutdown screen\n");
     showingNormalScreen = false;
@@ -1070,7 +1072,7 @@ void ActiveScreen::handleShutdownScreen()
     setFastFramerate();
 }
 
-void ActiveScreen::handleRebootScreen()
+void OLEDDisplayScreen::handleRebootScreen()
 {
     LOG_DEBUG("showing reboot screen\n");
     showingNormalScreen = false;
@@ -1082,7 +1084,7 @@ void ActiveScreen::handleRebootScreen()
     setFastFramerate();
 }
 
-void ActiveScreen::handleStartFirmwareUpdateScreen()
+void OLEDDisplayScreen::handleStartFirmwareUpdateScreen()
 {
     LOG_DEBUG("showing firmware screen\n");
     showingNormalScreen = false;
@@ -1094,7 +1096,7 @@ void ActiveScreen::handleStartFirmwareUpdateScreen()
     setFastFramerate();
 }
 
-void ActiveScreen::blink()
+void OLEDDisplayScreen::blink()
 {
     setFastFramerate();
     uint8_t count = 10;
@@ -1111,12 +1113,12 @@ void ActiveScreen::blink()
     dispdev->setBrightness(brightness);
 }
 
-void ActiveScreen::onPress()
+void OLEDDisplayScreen::onPress()
 {
     enqueueCmd(ScreenCmd{.cmd = Cmd::ON_PRESS});
 }
 
-void ActiveScreen::handlePrint(const char *text)
+void OLEDDisplayScreen::handlePrint(const char *text)
 {
     // the string passed into us probably has a newline, but that would confuse the logging system
     // so strip it
@@ -1127,7 +1129,7 @@ void ActiveScreen::handlePrint(const char *text)
     dispdev->print(text);
 }
 
-void ActiveScreen::handleOnPress()
+void OLEDDisplayScreen::handleOnPress()
 {
     // If screen was off, just wake it, otherwise advance to next frame
     // If we are in a transition, the press must have bounced, drop it.
@@ -1142,7 +1144,7 @@ void ActiveScreen::handleOnPress()
 #define SCREEN_TRANSITION_FRAMERATE 30 // fps
 #endif
 
-void ActiveScreen::setFastFramerate()
+void OLEDDisplayScreen::setFastFramerate()
 {
     // We are about to start a transition so speed up fps
     targetFramerate = SCREEN_TRANSITION_FRAMERATE;
@@ -1154,7 +1156,7 @@ void ActiveScreen::setFastFramerate()
 
 
 // adjust Brightness cycle trough 1 to 254 as long as attachDuringLongPress is true
-void ActiveScreen::adjustBrightness()
+void OLEDDisplayScreen::adjustBrightness()
 {
     if (!useDisplay)
         return;
@@ -1171,7 +1173,7 @@ void ActiveScreen::adjustBrightness()
     dispdev->setBrightness(brightness);
 }
 
-void ActiveScreen::startBluetoothPinScreen(uint32_t pin)
+void OLEDDisplayScreen::startBluetoothPinScreen(uint32_t pin)
 {
     ScreenCmd cmd;
     cmd.cmd = Cmd::START_BLUETOOTH_PIN_SCREEN;
@@ -1179,38 +1181,38 @@ void ActiveScreen::startBluetoothPinScreen(uint32_t pin)
     enqueueCmd(cmd);
 }
 
-void ActiveScreen::startFirmwareUpdateScreen()
+void OLEDDisplayScreen::startFirmwareUpdateScreen()
 {
     ScreenCmd cmd;
     cmd.cmd = Cmd::START_FIRMWARE_UPDATE_SCREEN;
     enqueueCmd(cmd);
 }
 
-void ActiveScreen::startShutdownScreen()
+void OLEDDisplayScreen::startShutdownScreen()
 {
     ScreenCmd cmd;
     cmd.cmd = Cmd::START_SHUTDOWN_SCREEN;
     enqueueCmd(cmd);
 }
 
-void ActiveScreen::startRebootScreen()
+void OLEDDisplayScreen::startRebootScreen()
 {
     ScreenCmd cmd;
     cmd.cmd = Cmd::START_REBOOT_SCREEN;
     enqueueCmd(cmd);
 }
 
-void ActiveScreen::stopBluetoothPinScreen()
+void OLEDDisplayScreen::stopBluetoothPinScreen()
 {
     enqueueCmd(ScreenCmd{.cmd = Cmd::STOP_BLUETOOTH_PIN_SCREEN});
 }
 
-void ActiveScreen::stopBootScreen()
+void OLEDDisplayScreen::stopBootScreen()
 {
     enqueueCmd(ScreenCmd{.cmd = Cmd::STOP_BOOT_SCREEN});
 }
 
-void ActiveScreen::print(const char *text)
+void OLEDDisplayScreen::print(const char *text)
 {
     ScreenCmd cmd;
     cmd.cmd = Cmd::PRINT;
@@ -1223,7 +1225,7 @@ void ActiveScreen::print(const char *text)
     }
 }
 
-char ActiveScreen::customFontTableLookup(const uint8_t ch)
+char OLEDDisplayScreen::customFontTableLookup(const uint8_t ch)
 {
     // UTF-8 to font table index converter
     // Code form http://playground.arduino.cc/Main/Utf8ascii
@@ -1283,12 +1285,12 @@ char ActiveScreen::customFontTableLookup(const uint8_t ch)
                          // stick to standard EASCII codes)
 }
 
-DebugInfo * ActiveScreen::debug_info()
+DebugInfo * OLEDDisplayScreen::debug_info()
 {
     return &debugInfo;
 }
 
-int ActiveScreen::handleStatusUpdate(const meshtastic::Status *arg)
+int OLEDDisplayScreen::handleStatusUpdate(const meshtastic::Status *arg)
 {
     // LOG_DEBUG("Screen got status update %d\n", arg->getStatusType());
     switch (arg->getStatusType()) {
@@ -1303,7 +1305,7 @@ int ActiveScreen::handleStatusUpdate(const meshtastic::Status *arg)
     return 0;
 }
 
-int ActiveScreen::handleTextMessage(const meshtastic_MeshPacket *packet)
+int OLEDDisplayScreen::handleTextMessage(const meshtastic_MeshPacket *packet)
 {
     if (showingNormalScreen) {
         setFrames(); // Regen the list of screens (will show new text message)
@@ -1312,7 +1314,7 @@ int ActiveScreen::handleTextMessage(const meshtastic_MeshPacket *packet)
     return 0;
 }
 
-int ActiveScreen::handleUIFrameEvent(const UIFrameEvent *event)
+int OLEDDisplayScreen::handleUIFrameEvent(const UIFrameEvent *event)
 {
     if (showingNormalScreen) {
         if (event->frameChanged) {
@@ -1328,7 +1330,7 @@ int ActiveScreen::handleUIFrameEvent(const UIFrameEvent *event)
     return 0;
 }
 
-int ActiveScreen::getStringCenteredX(const char * s)
+int OLEDDisplayScreen::getStringCenteredX(const char * s)
 {
     return (displayWidth - dispdev->getStringWidth(s)) / 2;
 }

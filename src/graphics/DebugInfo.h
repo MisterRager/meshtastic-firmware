@@ -9,7 +9,7 @@
 
 namespace graphics {
 
-class ActiveScreen;
+class OLEDDisplayScreen;
 
 /// Handles gathering and displaying debug information.
 class DebugInfo
@@ -21,7 +21,7 @@ class DebugInfo
   protected:
     DebugInfo() {}
   private:
-    friend class ActiveScreen;
+    friend class OLEDDisplayScreen;
 
 
     /// Renders the debug screen.
