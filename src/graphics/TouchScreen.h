@@ -34,6 +34,7 @@ private:
         DEEP_SLEEP,
         SET_ON,
         SET_OFF,
+        FLUSH,
     };
 
     enum InputType {
@@ -45,11 +46,18 @@ private:
         BLUETOOTH_PIN,
         SHUTDOWN,
         FIRMWARE_UPDATE,
+        REBOOT,
+        SSL_FRAME,
+    };
+
+    union NavigationData {
+        uint32_t bluetoothPin;
     };
 
     typedef struct NavigationEvent {
         NavigationType type;
         bool isEnter;
+        NavigationData data;
     } NavigationEvent;
 
     TypedQueue<NavigationEvent> navigationQueue;
