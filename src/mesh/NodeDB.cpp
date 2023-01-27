@@ -176,9 +176,7 @@ void NodeDB::installDefaultConfig()
     config.bluetooth.enabled = true;
     config.bluetooth.fixed_pin = defaultBLEPin;
 #if defined(ST7735_CS) || defined(USE_EINK) || defined(ILI9341_DRIVER)
-    bool hasScreen = true;
-#else
-    bool hasScreen = screen_found;
+    hasScreen = true;
 #endif
     config.bluetooth.mode = hasScreen ? meshtastic_Config_BluetoothConfig_PairingMode_RANDOM_PIN
                                       : meshtastic_Config_BluetoothConfig_PairingMode_FIXED_PIN;

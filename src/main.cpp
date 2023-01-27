@@ -264,7 +264,7 @@ void setup()
 
     // We need to scan here to decide if we have a screen for nodeDB.init()
     scanI2Cdevice(screen_found, screen_model);
-    nodeDB.screen_found = screen_found;
+    nodeDB.hasScreen = screen_found;
 
 #ifdef HAS_SDCARD
     setupSDCard();
