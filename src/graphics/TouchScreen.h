@@ -6,33 +6,11 @@
 
 namespace graphics {
 
-enum InputType {
-    PRESS_MAIN,
-    SETUP,
-    SET_ON,
-    SET_OFF,
-    ADJUST_BRIGHTNESS,
-    DEEP_SLEEP,
-};
-
-enum NavigationType {
-    BLUETOOTH_PIN,
-    SHUTDOWN,
-    FIRMWARE_UPDATE,
-};
-
-typedef struct InputEvent {
-    InputType type;
-} InputEvent;
-
-typedef struct NavigationEvent {
-    NavigationType type;
-    bool isEnter;
-} NavigationEvent;
 
 class TouchScreen : public Screen
 {
 public:
+
     TouchScreen();
 
     void onPress() override;
@@ -51,9 +29,32 @@ public:
     void setSSLFrames() override;
 
 private:
+    enum ScreenEventType {
+        BLINK,
+        DEEP_SLEEP,
+        SET_ON,
+        SET_OFF,
+    };
+
+    enum InputType {
+        PRESS_MAIN,
+        ADJUST_BRIGHTNESS,
+    };
+
+    enum NavigationType {
+        BLUETOOTH_PIN,
+        SHUTDOWN,
+        FIRMWARE_UPDATE,
+    };
+
+    typedef struct NavigationEvent {
+        NavigationType type;
+        bool isEnter;
+    } NavigationEvent;
 
     TypedQueue<NavigationEvent> navigationQueue;
-    TypedQueue<InputEvent> inputQueue;
+    TypedQueue<InputType> inputQueue;
+    TypedQueue<ScreenEventType> screenQueue;
 };
 
 };
