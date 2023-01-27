@@ -6,6 +6,7 @@
 #include "graphics/Screen.h"
 #include "mesh/generated/meshtastic/telemetry.pb.h"
 #include <map>
+#include <memory>
 #if !defined(ARCH_PORTDUINO) && !defined(ARCH_STM32WL)
 #include <SparkFun_ATECCX08a_Arduino_Library.h>
 #endif
@@ -29,7 +30,7 @@ extern uint8_t nodeTelemetrySensorsMap[_meshtastic_TelemetrySensorType_MAX + 1];
 extern int TCPPort; // set by Portduino
 
 // Global Screen singleton.
-extern graphics::Screen *screen;
+extern std::unique_ptr<graphics::Screen> screen;
 // extern Observable<meshtastic::PowerStatus> newPowerStatus; //TODO: move this to main-esp32.cpp somehow or a helper class
 
 // extern meshtastic::PowerStatus *powerStatus;

@@ -188,6 +188,8 @@ class ActiveScreen : public graphics::Screen, public concurrency::OSThread
     OLEDDisplayUi ui;
 
     uint16_t displayWidth, displayHeight;
+    int8_t prevFrame = -1;
+    size_t nodeIndex;
 
     int getStringCenteredX(const char *);
 
@@ -195,6 +197,7 @@ class ActiveScreen : public graphics::Screen, public concurrency::OSThread
     friend void drawOEMIconScreen(const char *, OLEDDisplay *, OLEDDisplayUiState *, int16_t, int16_t);
     friend void drawColumns(ActiveScreen *, int16_t, int16_t, const char **);
     friend void drawNodeInfo(OLEDDisplay *, OLEDDisplayUiState *, int16_t, int16_t);
+
 };
 
 }

@@ -462,8 +462,6 @@ static uint16_t getCompassDiam(OLEDDisplay *display)
 
 /// We will skip one node - the one for us, so we just blindly loop over all
 /// nodes
-static size_t nodeIndex;
-static int8_t prevFrame = -1;
 
 // Draw the arrow pointing to a node's location
 static void drawNodeHeading(OLEDDisplay *display, int16_t compassX, int16_t compassY, float headingRadian)
@@ -515,20 +513,20 @@ void drawNodeInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, in
 
     // We only advance our nodeIndex if the frame # has changed - because
     // drawNodeInfo will be called repeatedly while the frame is shown
-    if (state->currentFrame != prevFrame) {
-        prevFrame = state->currentFrame;
+    if (state->currentFrame != screen->prevFrame) {
+        screen->prevFrame = state->currentFrame;
 
-        nodeIndex = (nodeIndex + 1) % nodeDB.getNumNodes();
-        meshtastic_NodeInfo *n = nodeDB.getNodeByIndex(nodeIndex);
+        screen->nodeIndex = (screen->nodeIndex + 1) % nodeDB.getNumNodes();
+        meshtastic_NodeInfo *n = nodeDB.getNodeByIndex(screen->nodeIndex);
         if (n->num == nodeDB.getNodeNum()) {
             // Don't show our node, just skip to next
-            nodeIndex = (nodeIndex + 1) % nodeDB.getNumNodes();
-            n = nodeDB.getNodeByIndex(nodeIndex);
+            screen->nodeIndex = (screen->nodeIndex + 1) % nodeDB.getNumNodes();
+            n = nodeDB.getNodeByIndex(screen->nodeIndex);
         }
         displayedNodeNum = n->num;
     }
 
-    meshtastic_NodeInfo *node = nodeDB.getNodeByIndex(nodeIndex);
+    meshtastic_NodeInfo *node = nodeDB.getNodeByIndex(screen->nodeIndex);
 
     display->setFont(FONT_SMALL);
 

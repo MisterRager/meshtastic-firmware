@@ -61,10 +61,12 @@
 #endif
 #include "PowerFSMThread.h"
 
+#include <memory>
+
 using namespace concurrency;
 
 // We always create a screen object, but we only init it if we find the hardware
-graphics::Screen *screen = NULL;
+std::unique_ptr<graphics::Screen> screen;
 
 // Global power status
 meshtastic::PowerStatus *powerStatus = new meshtastic::PowerStatus();
@@ -323,26 +325,32 @@ void setup()
 #endif
 
     // Initialize the screen first so we can show the logo while we start up everything else.
-    auto geometry = screen_model == meshtastic_Config_DisplayConfig_OledType_OLED_SH1107 ? GEOMETRY_128_128 : GEOMETRY_128_64;
 #if !HAS_SCREEN
-    screen = new graphics::Screen('0');
-#elif defined(USE_SH1106) || defined(USE_SH1107)
-    screen = new graphics::ActiveScreen(std::unique_ptr<SH1106Wire>(new SH1106Wire(screen_found, -1, -1, geometry)));
+    screen = std::unique_ptr<graphics::Screen>(new graphics::Screen('0'));
+#else
+    auto geometry = screen_model == meshtastic_Config_DisplayConfig_OledType_OLED_SH1107 ? GEOMETRY_128_128 : GEOMETRY_128_64;
+
+#if defined(USE_SH1106) || defined(USE_SH1107)
+    auto display = std::unique_ptr<SH1106Wire>(new SH1106Wire(screen_found, -1, -1, geometry));
 #elif defined(USE_SSD1306)
-    screen = new graphics::ActiveScreen(std::unique_ptr<SSD1306Wire>(new SSD1306Wire(screen_found, -1, -1, geometry)));
+    auto display = std::unique_ptr<SSD1306Wire>(new SSD1306Wire(screen_found, -1, -1, geometry));
 #elif defined(ST7735_CS) || defined(ILI9341_DRIVER)
-    screen = new graphics::ActiveScreen(std::unique_ptr<TFTDisplay>(new TFTDisplay(screen_found, -1, -1, geometry)));
+    auto display = std::unique_ptr<TFTDisplay>(new TFTDisplay(screen_found, -1, -1, geometry));
 #elif defined(USE_EINK)
-    screen = new graphics::ActiveScreen(std::unique_ptr<EInkDisplay>(new EInkDisplay(screen_found, -1, -1, geometry)));
+    auto display = std::unique_ptr<EInkDisplay>(new EInkDisplay(screen_found, -1, -1, geometry));
 #elif defined(USE_ST7567)
-    screen = new graphics::ActiveScreen(std::unique_ptr<ST7567Wire>(new ST7567Wire(screen_found, -1, -1, geometry)));
+    auto display = std::unique_ptr<ST7567Wire>(new ST7567Wire(screen_found, -1, -1, geometry));
 #else
     if (screen_model == meshtastic_Config_DisplayConfig_OledType_OLED_SH1107)
         screen_model = meshtastic_Config_DisplayConfig_OledType_OLED_SH1106;
     auto display = std::unique_ptr<AutoOLEDWire>(new AutoOLEDWire(screen_found, -1, -1, geometry));
     display->setDetected(screen_model);
-    screen = new graphics::ActiveScreen(std::move(display));
 #endif
+
+    screen = std::unique_ptr<graphics::ActiveScreen>(new graphics::ActiveScreen(std::move(display)));
+
+#endif
+
 
     readFromRTC(); // read the main CPU RTC at first (in case we can't get GPS time)
 
