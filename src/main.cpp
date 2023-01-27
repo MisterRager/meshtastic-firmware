@@ -19,6 +19,8 @@
 #include "detect/einkScan.h"
 #include "detect/i2cScan.h"
 #include "graphics/Screen.h"
+#include "graphics/ActiveScreen.h"
+#include "AutoOLEDWire.h"
 #include "main.h"
 #include "modules/Modules.h"
 #include "shutdown.h"

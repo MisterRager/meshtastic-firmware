@@ -7,6 +7,7 @@
 #include "main.h"
 #include "sleep.h"
 #include "target_specific.h"
+#include "power.h"
 
 /// Should we behave as if we have AC power now?
 static bool isPowered()
