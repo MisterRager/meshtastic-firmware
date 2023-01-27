@@ -193,8 +193,10 @@ static void drawModuleFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int
     pi.drawFrame(display, state, x, y);
 }
 
-static void drawFrameBluetooth(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+void drawFrameBluetooth(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
+    ActiveScreen * screen = reinterpret_cast<ActiveScreen *>(state->userData);
+
     int x_offset = display->width() / 2;
     int y_offset = display->height() == 64 ? 0 : 32;
     display->setTextAlignment(TEXT_ALIGN_CENTER);
@@ -206,7 +208,7 @@ static void drawFrameBluetooth(OLEDDisplay *display, OLEDDisplayUiState *state, 
     display->drawString(x_offset + x, y_offset + y, "Enter this code");
 
     display->setFont(FONT_LARGE);
-    String displayPin(btPIN);
+    String displayPin(screen->btPIN);
     String pin = displayPin.substring(0, 3) + " " + displayPin.substring(3, 6);
     y_offset = display->height() == 64 ? y_offset + FONT_HEIGHT_SMALL - 5 : y_offset + FONT_HEIGHT_SMALL + 5;
     display->drawString(x_offset + x, y_offset + y, pin);
@@ -757,7 +759,7 @@ void ActiveScreen::setup()
     // Get our hardware ID
     uint8_t dmac[6];
     getMacAddr(dmac);
-    snprintf(graphics::ourId, sizeof(ourId), "%02x%02x", dmac[4], dmac[5]);
+    snprintf(ourId, sizeof(ourId), "%02x%02x", dmac[4], dmac[5]);
 
     // Turn on the display.
     handleSetOn(true);

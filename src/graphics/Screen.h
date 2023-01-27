@@ -51,24 +51,9 @@ namespace graphics
 // if defined a pixel will blink to show redraws
 // #define SHOW_REDRAWS
 
-// A text message frame + debug frame + all the node infos
-extern uint32_t targetFramerate;
-extern char btPIN[16];
-
-extern uint32_t logo_timeout; // 4 seconds for EACH logo
-
 // At some point, we're going to ask all of the modules if they would like to display a screen frame
 // we'll need to hold onto pointers for the modules that can draw a frame.
 extern std::vector<MeshModule *> moduleFrames;
-
-// Stores the last 4 of our hardware ID, to make finding the device for pairing easier
-extern char ourId[5];
-
-#ifdef SHOW_REDRAWS
-extern bool heartbeat;
-#endif
-
-extern uint16_t displayWidth, displayHeight;
 
 /*
 Base class Screen

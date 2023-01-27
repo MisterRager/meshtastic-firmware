@@ -190,6 +190,17 @@ class ActiveScreen : public graphics::Screen, public concurrency::OSThread
     uint16_t displayWidth, displayHeight;
     int8_t prevFrame = -1;
     size_t nodeIndex;
+    uint32_t targetFramerate = IDLE_FRAMERATE;
+    uint32_t logo_timeout = 5000; // 4 seconds for EACH logo
+
+    #ifdef SHOW_REDRAWS
+    bool heartbeat = true;
+    #endif
+
+    // A text message frame + debug frame + all the node infos
+    char btPIN[16] = "888888";
+    // Stores the last 4 of our hardware ID, to make finding the device for pairing easier
+    char ourId[5] = {0, 0, 0, 0, 0};
 
     int getStringCenteredX(const char *);
 
@@ -197,6 +208,8 @@ class ActiveScreen : public graphics::Screen, public concurrency::OSThread
     friend void drawOEMIconScreen(const char *, OLEDDisplay *, OLEDDisplayUiState *, int16_t, int16_t);
     friend void drawColumns(ActiveScreen *, int16_t, int16_t, const char **);
     friend void drawNodeInfo(OLEDDisplay *, OLEDDisplayUiState *, int16_t, int16_t);
+    friend void drawFrameBluetooth(OLEDDisplay *, OLEDDisplayUiState *, int16_t, int16_t);
+    friend class DebugInfo;
 
 };
 

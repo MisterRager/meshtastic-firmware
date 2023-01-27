@@ -32,21 +32,9 @@ using namespace meshtastic; /** @todo remove */
 namespace graphics
 {
 
-uint32_t targetFramerate = IDLE_FRAMERATE;
-char btPIN[16] = "888888";
-
-uint32_t logo_timeout = 5000; // 4 seconds for EACH logo
-
 // At some point, we're going to ask all of the modules if they would like to display a screen frame
 // we'll need to hold onto pointers for the modules that can draw a frame.
 std::vector<MeshModule *> moduleFrames;
-
-// Stores the last 4 of our hardware ID, to make finding the device for pairing easier
-char ourId[5];
-
-#ifdef SHOW_REDRAWS
-bool heartbeat = true;
-#endif
 
 
 Screen::Screen(char _) { }

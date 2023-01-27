@@ -10,6 +10,7 @@
 #include "concurrency/LockGuard.h"
 #include "RTC.h"
 #include "airtime.h"
+#include "ActiveScreen.h"
 
 #ifdef ARCH_ESP32
 #include "modules/esp32/StoreForwardModule.h"
@@ -210,6 +211,8 @@ static void drawGPScoordinates(OLEDDisplay *display, int16_t x, int16_t y, const
 
 void DebugInfo::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
+    ActiveScreen * screen = reinterpret_cast<ActiveScreen *>(state->userData);
+
     displayedNodeNum = 0; // Not currently showing a node pane
 
     display->setFont(FONT_SMALL);
@@ -273,47 +276,47 @@ void DebugInfo::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *state, int16
         if (millis() - storeForwardModule->lastHeartbeat >
             (storeForwardModule->heartbeatInterval * 1200)) { // no heartbeat, overlap a bit
 #if defined(USE_EINK) || defined(ILI9341_DRIVER) || defined(ST7735_CS)
-            display->drawFastImage(x + display->getWidth() - 14 - display->getStringWidth(ourId), y + 3 + FONT_HEIGHT_SMALL, 12, 8,
+            display->drawFastImage(x + display->getWidth() - 14 - display->getStringWidth(screen->ourId), y + 3 + FONT_HEIGHT_SMALL, 12, 8,
                                    imgQuestionL1);
-            display->drawFastImage(x + display->getWidth() - 14 - display->getStringWidth(ourId), y + 11 + FONT_HEIGHT_SMALL, 12, 8,
+            display->drawFastImage(x + display->getWidth() - 14 - display->getStringWidth(screen->ourId), y + 11 + FONT_HEIGHT_SMALL, 12, 8,
                                    imgQuestionL2);
 #else
-            display->drawFastImage(x + display->getWidth() - 10 - display->getStringWidth(ourId), y + 2 + FONT_HEIGHT_SMALL, 8, 8,
+            display->drawFastImage(x + display->getWidth() - 10 - display->getStringWidth(screen->ourId), y + 2 + FONT_HEIGHT_SMALL, 8, 8,
                                    imgQuestion);
 #endif
         } else {
 #if defined(USE_EINK) || defined(ILI9341_DRIVER) || defined(ST7735_CS)
-            display->drawFastImage(x + display->getWidth() - 18 - display->getStringWidth(ourId), y + 3 + FONT_HEIGHT_SMALL, 16, 8,
+            display->drawFastImage(x + display->getWidth() - 18 - display->getStringWidth(screen->ourId), y + 3 + FONT_HEIGHT_SMALL, 16, 8,
                                    imgSFL1);
-            display->drawFastImage(x + display->getWidth() - 18 - display->getStringWidth(ourId), y + 11 + FONT_HEIGHT_SMALL, 16, 8,
+            display->drawFastImage(x + display->getWidth() - 18 - display->getStringWidth(screen->ourId), y + 11 + FONT_HEIGHT_SMALL, 16, 8,
                                    imgSFL2);
 #else
-            display->drawFastImage(x + display->getWidth() - 13 - display->getStringWidth(ourId), y + 2 + FONT_HEIGHT_SMALL, 11, 8,
+            display->drawFastImage(x + display->getWidth() - 13 - display->getStringWidth(screen->ourId), y + 2 + FONT_HEIGHT_SMALL, 11, 8,
                                    imgSF);
 #endif
         }
 #endif
     } else {
 #if defined(USE_EINK) || defined(ILI9341_DRIVER) || defined(ST7735_CS)
-        display->drawFastImage(x + display->getWidth() - 14 - display->getStringWidth(ourId), y + 3 + FONT_HEIGHT_SMALL, 12, 8,
+        display->drawFastImage(x + display->getWidth() - 14 - display->getStringWidth(screen->ourId), y + 3 + FONT_HEIGHT_SMALL, 12, 8,
                                imgInfoL1);
-        display->drawFastImage(x + display->getWidth() - 14 - display->getStringWidth(ourId), y + 11 + FONT_HEIGHT_SMALL, 12, 8,
+        display->drawFastImage(x + display->getWidth() - 14 - display->getStringWidth(screen->ourId), y + 11 + FONT_HEIGHT_SMALL, 12, 8,
                                imgInfoL2);
 #else
-        display->drawFastImage(x + display->getWidth() - 10 - display->getStringWidth(ourId), y + 2 + FONT_HEIGHT_SMALL, 8, 8, imgInfo);
+        display->drawFastImage(x + display->getWidth() - 10 - display->getStringWidth(screen->ourId), y + 2 + FONT_HEIGHT_SMALL, 8, 8, imgInfo);
 #endif
     }
 
-    display->drawString(x + display->getWidth() - display->getStringWidth(ourId), y + FONT_HEIGHT_SMALL, ourId);
+    display->drawString(x + display->getWidth() - display->getStringWidth(screen->ourId), y + FONT_HEIGHT_SMALL, screen->ourId);
 
     // Draw any log messages
     display->drawLogBuffer(x, y + (FONT_HEIGHT_SMALL * 2));
 
     /* Display a heartbeat pixel that blinks every time the frame is redrawn */
 #ifdef SHOW_REDRAWS
-    if (heartbeat)
+    if (screen->heartbeat)
         display->setPixel(0, 0);
-    heartbeat = !heartbeat;
+    screen->heartbeat = !screen->heartbeat;
 #endif
 }
 
@@ -446,9 +449,11 @@ void DebugInfo::drawFrameWiFi(OLEDDisplay *display, OLEDDisplayUiState *state, i
 
     /* Display a heartbeat pixel that blinks every time the frame is redrawn */
 #ifdef SHOW_REDRAWS
-    if (heartbeat)
+    ActiveScreen * screen = reinterpret_cast<ActiveScreen *>(state->userData);
+
+    if (screen->heartbeat)
         display->setPixel(0, 0);
-    heartbeat = !heartbeat;
+    screen->heartbeat = !screen->heartbeat;
 #endif
 #endif
 }
@@ -580,9 +585,9 @@ void DebugInfo::drawFrameSettings(OLEDDisplay *display, OLEDDisplayUiState *stat
     }
     /* Display a heartbeat pixel that blinks every time the frame is redrawn */
 #ifdef SHOW_REDRAWS
-    if (heartbeat)
+    if (screen->heartbeat)
         display->setPixel(0, 0);
-    heartbeat = !heartbeat;
+    screen->heartbeat = !screen->heartbeat;
 #endif
 }
 
