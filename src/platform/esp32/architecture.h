@@ -98,7 +98,7 @@
 #elif defined(NANO_G1_EXPLORER)
 #define HW_VENDOR meshtastic_HardwareModel_NANO_G1_EXPLORER
 #elif defined(BETAFPV_900_TX_NANO)
-#define HW_VENDOR meshtastic_HardwareModel_PRIVATE_HW
+#define HW_VENDOR meshtastic_HardwareModel_BETAFPV_900_NANO_TX
 #endif
 
 //
