@@ -113,6 +113,7 @@ class GeoCoord
     static void latLongToOLC(const double lat, const double lon, OLC &olc);
     static void convertWGS84ToOSGB36(const double lat, const double lon, double &osgb_Latitude, double &osgb_Longitude);
     static float latLongToMeter(double lat_a, double lng_a, double lat_b, double lng_b);
+    static float bearing(int32_t lat1, int32_t lon1, int32_t lat2, int32_t lon2);
     static float bearing(double lat1, double lon1, double lat2, double lon2);
     static float rangeRadiansToMeters(double range_radians);
     static float rangeMetersToRadians(double range_meters);

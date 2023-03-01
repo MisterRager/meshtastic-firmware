@@ -114,6 +114,8 @@ class Screen : public concurrency::OSThread
         CallbackObserver<Screen, const meshtastic_MeshPacket *>(this, &Screen::handleTextMessage);
     CallbackObserver<Screen, const UIFrameEvent *> uiFrameEventObserver =
         CallbackObserver<Screen, const UIFrameEvent *>(this, &Screen::handleUIFrameEvent);
+    CallbackObserver<Screen, float> headingObserver =
+        CallbackObserver<Screen, float>(this, &Screen::handleHeadingUpdate);
 
   public:
     explicit Screen(uint8_t address, int sda = -1, int scl = -1);
@@ -298,6 +300,7 @@ class Screen : public concurrency::OSThread
     int handleStatusUpdate(const meshtastic::Status *arg);
     int handleTextMessage(const meshtastic_MeshPacket *arg);
     int handleUIFrameEvent(const UIFrameEvent *arg);
+    int handleHeadingUpdate(float);
 
     /// Used to force (super slow) eink displays to draw critical frames
     void forceDisplay();
@@ -355,6 +358,11 @@ class Screen : public concurrency::OSThread
 
     static void drawDebugInfoWiFiTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y);
 
+    // Called to show info for a seen node
+    void drawNodeInfo(OLEDDisplay *, OLEDDisplayUiState *, int16_t, int16_t);
+
+    static void drawNodeInfoTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y);
+
     /// Queue of commands to execute in doTask.
     TypedQueue<ScreenCmd> cmdQueue;
     /// Whether we are using a display
@@ -385,6 +393,19 @@ class Screen : public concurrency::OSThread
 #endif
     /// UI helper for rendering to frames and switching between them
     OLEDDisplayUi ui;
+
+    // Default to North
+    float currentHeading = 0.0;
+
+    size_t nodeIndex;
+
+    /// We will skip one node - the one for us, so we just blindly loop over all
+    /// nodes
+    int8_t prevFrame = -1;
+
+    char signalStr[20];
+    char lastStr[20];
+    char distStr[20];
 };
 
 } // namespace graphics

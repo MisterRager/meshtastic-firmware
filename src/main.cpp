@@ -21,6 +21,7 @@
 #include "graphics/Screen.h"
 #include "main.h"
 #include "modules/Modules.h"
+#include "status/Heading.h"
 #include "shutdown.h"
 #include "sleep.h"
 #include "target_specific.h"
@@ -78,6 +79,9 @@ meshtastic::GPSStatus *gpsStatus = new meshtastic::GPSStatus();
 
 // Global Node status
 meshtastic::NodeStatus *nodeStatus = new meshtastic::NodeStatus();
+
+// Global Heading status
+meshtastic::Heading *heading = new meshtastic::Heading();
 
 /// The I2C address of our display (if found)
 uint8_t screen_found;
@@ -346,10 +350,12 @@ void setup()
 
     gps = createGps();
 
-    if (gps)
+    if (gps) {
         gpsStatus->observe(&gps->newStatus);
-    else
+        heading->observe(&gps->newStatus);
+    } else {
         LOG_WARN("No GPS found - running without GPS\n");
+    }
 
     nodeStatus->observe(&nodeDB.newStatus);
 

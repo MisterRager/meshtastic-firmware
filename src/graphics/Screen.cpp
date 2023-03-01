@@ -654,36 +654,6 @@ static void drawLine(OLEDDisplay *d, const Point &p1, const Point &p2)
     d->drawLine(p1.x, p1.y, p2.x, p2.y);
 }
 
-/**
- * Given a recent lat/lon return a guess of the heading the user is walking on.
- *
- * We keep a series of "after you've gone 10 meters, what is your heading since
- * the last reference point?"
- */
-static float estimatedHeading(double lat, double lon)
-{
-    static double oldLat, oldLon;
-    static float b;
-
-    if (oldLat == 0) {
-        // just prepare for next time
-        oldLat = lat;
-        oldLon = lon;
-
-        return b;
-    }
-
-    float d = GeoCoord::latLongToMeter(oldLat, oldLon, lat, lon);
-    if (d < 10) // haven't moved enough, just keep current bearing
-        return b;
-
-    b = GeoCoord::bearing(oldLat, oldLon, lat, lon);
-    oldLat = lat;
-    oldLon = lon;
-
-    return b;
-}
-
 /// Sometimes we will have Position objects that only have a time, so check for
 /// valid lat/lon
 static bool hasPosition(meshtastic_NodeInfo *n)
@@ -716,11 +686,6 @@ static uint16_t getCompassDiam(OLEDDisplay *display)
     return diam - 20;
 };
 
-/// We will skip one node - the one for us, so we just blindly loop over all
-/// nodes
-static size_t nodeIndex;
-static int8_t prevFrame = -1;
-
 // Draw the arrow pointing to a node's location
 static void drawNodeHeading(OLEDDisplay *display, int16_t compassX, int16_t compassY, float headingRadian)
 {
@@ -744,8 +709,7 @@ static void drawNodeHeading(OLEDDisplay *display, int16_t compassX, int16_t comp
 static void drawCompassNorth(OLEDDisplay *display, int16_t compassX, int16_t compassY, float myHeading)
 {
     // If north is supposed to be at the top of the compass we want rotation to be +0
-    if (config.display.compass_north_top)
-        myHeading = -0;
+    float heading = config.display.compass_north_top ? -0 : myHeading;
 
     Point N1(-0.04f, 0.65f), N2(0.04f, 0.65f);
     Point N3(-0.04f, 0.55f), N4(0.04f, 0.55f);
@@ -753,7 +717,7 @@ static void drawCompassNorth(OLEDDisplay *display, int16_t compassX, int16_t com
 
     for (int i = 0; i < 4; i++) {
         // North on compass will be negative of heading
-        rosePoints[i]->rotate(-myHeading);
+        rosePoints[i]->rotate(-heading);
         rosePoints[i]->scale(getCompassDiam(display));
         rosePoints[i]->translate(compassX, compassY);
     }
@@ -765,7 +729,7 @@ static void drawCompassNorth(OLEDDisplay *display, int16_t compassX, int16_t com
 /// Convert an integer GPS coords to a floating point
 #define DegD(i) (i * 1e-7)
 
-static void drawNodeInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+void Screen::drawNodeInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
 {
     // We only advance our nodeIndex if the frame # has changed - because
     // drawNodeInfo will be called repeatedly while the frame is shown
@@ -795,11 +759,9 @@ static void drawNodeInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_
 
     const char *username = node->has_user ? node->user.long_name : "Unknown Name";
 
-    static char signalStr[20];
     snprintf(signalStr, sizeof(signalStr), "Signal: %d%%", clamp((int)((node->snr + 10) * 5), 0, 100));
 
     uint32_t agoSecs = sinceLastSeen(node);
-    static char lastStr[20];
     if (agoSecs < 120) // last 2 mins?
         snprintf(lastStr, sizeof(lastStr), "%u seconds ago", agoSecs);
     else if (agoSecs < 120 * 60) // last 2 hrs
@@ -814,7 +776,6 @@ static void drawNodeInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_
         }
     }
 
-    static char distStr[20];
     strncpy(distStr, "? km", sizeof(distStr)); // might not have location data
     meshtastic_NodeInfo *ourNode = nodeDB.getNode(nodeDB.getNodeNum());
     const char *fields[] = {username, distStr, signalStr, lastStr, NULL};
@@ -832,8 +793,7 @@ static void drawNodeInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_
 
     if (ourNode && hasPosition(ourNode)) {
         meshtastic_Position &op = ourNode->position;
-        float myHeading = estimatedHeading(DegD(op.latitude_i), DegD(op.longitude_i));
-        drawCompassNorth(display, compassX, compassY, myHeading);
+        drawCompassNorth(display, compassX, compassY, currentHeading);
 
         if (hasPosition(node)) {
             // display direction toward node
@@ -859,7 +819,7 @@ static void drawNodeInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_
             // If the top of the compass is a static north then bearingToOther can be drawn on the compass directly
             // If the top of the compass is not a static north we need adjust bearingToOther based on heading
             if (!config.display.compass_north_top)
-                bearingToOther -= myHeading;
+                bearingToOther -= currentHeading;
             drawNodeHeading(display, compassX, compassY, bearingToOther);
         }
     }
@@ -1179,6 +1139,12 @@ void Screen::drawDebugInfoWiFiTrampoline(OLEDDisplay *display, OLEDDisplayUiStat
     screen2->debugInfo.drawFrameWiFi(display, state, x, y);
 }
 
+void Screen::drawNodeInfoTrampoline(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+{
+    Screen *screen2 = reinterpret_cast<Screen *>(state->userData);
+    screen2->drawNodeInfo(display, state, x, y);
+}
+
 /* show a message that the SSL cert is being built
  * it is expected that this will be used during the boot phase */
 void Screen::setSSLFrames()
@@ -1248,7 +1214,7 @@ void Screen::setFrames()
     // We only show a few nodes in our scrolling list - because meshes with many nodes would have too many screens
     size_t numToShow = min(numnodes, 4U);
     for (size_t i = 0; i < numToShow; i++)
-        normalFrames[numframes++] = drawNodeInfo;
+        normalFrames[numframes++] = drawNodeInfoTrampoline;
 
     // then the debug info
     //
@@ -1824,6 +1790,12 @@ int Screen::handleUIFrameEvent(const UIFrameEvent *event)
         }
     }
 
+    return 0;
+}
+
+int Screen::handleHeadingUpdate(float heading)
+{
+    currentHeading = heading;
     return 0;
 }
 

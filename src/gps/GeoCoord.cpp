@@ -396,6 +396,11 @@ float GeoCoord::latLongToMeter(double lat_a, double lng_a, double lat_b, double 
     return (float)(6366000 * tt);
 }
 
+float GeoCoord::bearing(int32_t lat1, int32_t lon1, int32_t lat2, int32_t lon2)
+{
+    return bearing(lat1 * 1e-7, lon1 * 1e-7, lat2 * 1e-7, lon2 * 1e-7);
+}
+
 /**
  * Computes the bearing in degrees between two points on Earth.  Ported from my
  * old Gaggle android app.
