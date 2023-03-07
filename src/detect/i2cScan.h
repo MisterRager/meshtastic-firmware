@@ -10,6 +10,9 @@
 
 #if HAS_WIRE
 
+// Keystore Chips
+static uint8_t keystore_found;
+
 void printATECCInfo()
 {
 #if !defined(ARCH_PORTDUINO) && !defined(ARCH_STM32WL)
